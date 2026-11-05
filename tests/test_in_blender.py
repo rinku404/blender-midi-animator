@@ -179,6 +179,21 @@ def main():
     strips = [st for t in drum.animation_data.nla_tracks if t.name.startswith("MIDI:") for st in t.strips]
     assert len(strips) == 8, len(strips)
 
+    # Add Audio on a scene with no sound strips yet (Blender 5 renamed sequences -> strips)
+    import tempfile
+    import wave
+    wav = os.path.join(tempfile.mkdtemp(), "silence.wav")
+    with wave.open(wav, "wb") as w:
+        w.setnchannels(1)
+        w.setsampwidth(2)
+        w.setframerate(22050)
+        w.writeframes(b"\0\0" * 22050)
+    s.audio_path = wav
+    assert bpy.ops.midianim.add_audio() == {"FINISHED"}
+    se = scene.sequence_editor
+    sound_strips = se.strips if hasattr(se, "strips") else se.sequences
+    assert len(sound_strips) == 1, len(sound_strips)
+
     ma.unregister()
     print("ALL TESTS PASSED")
 

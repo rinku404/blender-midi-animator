@@ -1052,7 +1052,8 @@ class MIDIANIM_OT_add_audio(bpy.types.Operator):
         if not scene.sequence_editor:
             scene.sequence_editor_create()
         se = scene.sequence_editor
-        strips = getattr(se, "strips", None) or se.sequences
+        # Blender 5.0 renamed sequences -> strips; an empty collection is falsy, so test the attribute
+        strips = se.strips if hasattr(se, "strips") else se.sequences
         strip = strips.new_sound("MIDI Audio", path, channel=1, frame_start=s.start_frame)
         scene.sync_mode = "AUDIO_SYNC"
         self.report({"INFO"}, f"Added {strip.name}")
