@@ -1,7 +1,7 @@
 bl_info = {
     "name": "MIDI Animator",
     "author": "Paulo + Claude",
-    "version": (0, 2, 0),
+    "version": (0, 3, 0),
     "blender": (4, 2, 0),
     "location": "3D Viewport > Sidebar (N) > MIDI",
     "description": "Drive character and instrument animation from MIDI files: wind-instrument "
@@ -577,8 +577,26 @@ class MIDIANIM_Settings(bpy.types.PropertyGroup):
     transition: FloatProperty(name="Transition (frames)", default=2.0, min=0.0, max=12.0)
     rest_gap: FloatProperty(name="Relax After (s)", default=0.5, min=0.0,
                             description="Rests longer than this relax the hand to the Rest pose")
-    save_note: EnumProperty(name="Fingering", items=lambda s, c: FINGERING_ITEMS)
+    fing_mode: EnumProperty(
+        name="Fingering Mode",
+        items=[
+            ("CHART", "Per Finger (sax chart)",
+             "Pose each finger pressed once; the built-in saxophone chart presses the right fingers "
+             "for every note. Most natural: fingers stay on the keys and only press or lift"),
+            ("POSES", "Whole-Hand Pose per Note",
+             "Pose the whole hand once per note name (Fingering_C, Fingering_D, ...)"),
+        ],
+        default="CHART",
+    )
+    save_note: EnumProperty(name="Fingering", items=lambda s, c: CHART_ITEMS if s.fing_mode == "CHART" else FINGERING_ITEMS)
     fing_missing: StringProperty(default="")
+
+    # Hold setup
+    hold_instrument: PointerProperty(name="Instrument", type=bpy.types.Object,
+                                     description="The saxophone body (the bell can stay its child)")
+    hold_chest_bone: StringProperty(name="Strap Bone", description="Chest/neck bone the instrument hangs from")
+    hold_hand_l: StringProperty(name="Left Hand", description="Left hand bone")
+    hold_hand_r: StringProperty(name="Right Hand", description="Right hand bone")
 
     effects: CollectionProperty(type=MIDIANIM_Effect)
     effect_index: IntProperty(default=0)
@@ -599,6 +617,69 @@ FINGERING_NAMES = (
 )
 FINGERING_ITEMS = [(n, n + (f" ({FLAT_ALIAS[n[:2]]})" if n[:2] in FLAT_ALIAS else ""), "")
                    for n in FINGERING_NAMES]
+
+
+# Per-finger mode: each element is one finger (all its joints) pressing its key(s). "Rest" is the
+# hold pose with every finger resting on its key, nothing pressed. Fingers not pressed for a note
+# stay at Rest, so only the fingers that change move.
+CHART_ELEMENTS = [
+    ("Rest", "Rest: hold pose, fingers on keys, nothing pressed"),
+    ("L1", "L1: left index presses B key"),
+    ("L2", "L2: left middle presses A key"),
+    ("L3", "L3: left ring presses G key"),
+    ("LP", "LP: left pinky presses G#/low B/Bb/C#"),
+    ("R1", "R1: right index presses F key"),
+    ("R2", "R2: right middle presses E key"),
+    ("R3", "R3: right ring presses D key"),
+    ("RP", "RP: right pinky presses low C/Eb"),
+    ("OctaveKey", "OctaveKey: left thumb presses octave key"),
+    ("Palm", "Palm: left hand palm keys (high D to F#)"),
+]
+CHART_ITEMS = [(n, label, "") for n, label in CHART_ELEMENTS]
+_L123, _R123 = ("L1", "L2", "L3"), ("R1", "R2", "R3")
+# Written saxophone pitch -> pressed elements (standard fingerings, main octave + low notes)
+SAX_CHART = {
+    58: _L123 + _R123 + ("LP",),   # low Bb
+    59: _L123 + _R123 + ("LP",),   # low B
+    60: _L123 + _R123 + ("RP",),   # low C
+    61: _L123 + _R123 + ("LP",),   # low C#
+    62: _L123 + _R123,             # D
+    63: _L123 + _R123 + ("RP",),   # Eb
+    64: _L123 + ("R1", "R2"),      # E
+    65: _L123 + ("R1",),           # F
+    66: _L123 + ("R2",),           # F#
+    67: _L123,                     # G
+    68: _L123 + ("LP",),           # G#
+    69: ("L1", "L2"),              # A
+    70: ("L1", "R1"),              # Bb (1 and 1)
+    71: ("L1",),                   # B
+    72: ("L2",),                   # C
+    73: (),                        # C# (open)
+}
+
+
+def chart_elements(written, octave_key=True):
+    """Pressed elements for a written sax pitch (clamped to the Bb3-F#6 range)."""
+    w = min(max(written, 58), 90)
+    if w >= 86:
+        return ("OctaveKey", "Palm") if octave_key else ("Palm",)
+    if w >= 74:
+        base = SAX_CHART[w - 12]
+        return base + ("OctaveKey",) if octave_key else base
+    return SAX_CHART[w]
+
+
+def chart_pose(settings, pitch):
+    """Return (pose_values or None, missing element names) for per-finger mode."""
+    elems = chart_elements(pitch + settings.transpose, settings.use_octave_key)
+    pose, missing = {}, []
+    for el in elems:
+        a = bpy.data.actions.get(settings.fing_prefix + el)
+        if a is None:
+            missing.append(settings.fing_prefix + el)
+        else:
+            pose.update(pose_values(a))
+    return (None if missing else pose), missing, elems
 
 
 def _name_variants(base):
@@ -645,17 +726,28 @@ def bake_fingering(scene, s, midi):
 
     # Resolve poses; monophonic: a note ends when the next one starts
     events, missing, cache = [], set(), {}
+    chart = s.fing_mode == "CHART"
+    if chart:
+        octave = {}  # the octave key is just another element in the chart
     for i, n in enumerate(notes):
-        act, use_oct, wanted = fingering_for(s, n.pitch)
-        if act is None:
-            missing.add(wanted)
-            continue
-        key = (act.name, use_oct)
-        if key not in cache:
-            p = dict(pose_values(act))
-            if use_oct:
-                p.update(octave)
-            cache[key] = p
+        if chart:
+            p, miss, elems = chart_pose(s, n.pitch)
+            if p is None:
+                missing.update(miss)
+                continue
+            key = elems
+            cache.setdefault(key, p)
+        else:
+            act, use_oct, wanted = fingering_for(s, n.pitch)
+            if act is None:
+                missing.add(wanted)
+                continue
+            key = (act.name, use_oct)
+            if key not in cache:
+                p = dict(pose_values(act))
+                if use_oct:
+                    p.update(octave)
+                cache[key] = p
         end = n.end if i + 1 >= len(notes) else min(n.end, notes[i + 1].start)
         events.append((frame(n.start), frame(max(end, n.start)), cache[key]))
     if not events:
@@ -980,6 +1072,140 @@ class MIDIANIM_OT_bind_mesh(bpy.types.Operator):
         return {"FINISHED"}
 
 
+HOLD_PREFIX = "MIDI Hold"
+
+
+def _find_bone(rig, keywords, side=None):
+    """Best-effort bone lookup across Rigify, Mixamo and Biped naming."""
+    def side_ok(name):
+        if side is None:
+            return True
+        n = name.lower()
+        l = side == "L"
+        marks = ((".l", "_l_", "_l.", "left", "l_", " l ") if l else (".r", "_r_", "_r.", "right", "r_", " r "))
+        return any(m in n for m in marks) or n.endswith("_l" if l else "_r")
+    names = [b.name for b in rig.data.bones]
+    for kw in keywords:
+        for n in names:
+            low = n.lower()
+            if kw in low and side_ok(n) and "twist" not in low and "finger" not in low:
+                return n
+    return ""
+
+
+class MIDIANIM_OT_guess_hold_bones(bpy.types.Operator):
+    """Fill the strap and hand bones from the rig's bone names"""
+    bl_idname = "midianim.guess_hold_bones"
+    bl_label = "Guess Bones"
+    bl_options = {"REGISTER", "UNDO"}
+
+    def execute(self, context):
+        s = context.scene.midi_animator
+        rig = s.fing_target
+        if not rig:
+            self.report({"ERROR"}, "Set the Character Rig in 3. Fingering first")
+            return {"CANCELLED"}
+        s.hold_chest_bone = s.hold_chest_bone or _find_bone(
+            rig, ["spine2", "spine4", "spine3", "chest", "spine.003", "upperchest", "spine1", "spine"])
+        s.hold_hand_l = s.hold_hand_l or _find_bone(rig, ["hand"], "L")
+        s.hold_hand_r = s.hold_hand_r or _find_bone(rig, ["hand"], "R")
+        return {"FINISHED"}
+
+
+class MIDIANIM_OT_lock_hands(bpy.types.Operator):
+    """Hang the instrument from the strap bone and lock both hands onto it with IK, keeping the
+    current pose. Pose the hold first (instrument at the lips, hands on the keys), then click this"""
+    bl_idname = "midianim.lock_hands"
+    bl_label = "Lock Hands to Instrument"
+    bl_options = {"REGISTER", "UNDO"}
+
+    def execute(self, context):
+        s = context.scene.midi_animator
+        rig, inst = s.fing_target, s.hold_instrument
+        if not rig or not inst:
+            self.report({"ERROR"}, "Set the Character Rig and the Instrument first")
+            return {"CANCELLED"}
+        for bone in (s.hold_chest_bone, s.hold_hand_l, s.hold_hand_r):
+            if bone not in rig.pose.bones:
+                self.report({"ERROR"}, f"Bone '{bone}' not found on {rig.name}")
+                return {"CANCELLED"}
+        if context.mode != "OBJECT":
+            bpy.ops.object.mode_set(mode="OBJECT")
+        context.view_layer.update()
+
+        # 1. Instrument hangs from the strap bone, keeping where it is now
+        mw = inst.matrix_world.copy()
+        inst.parent = rig
+        inst.parent_type = "BONE"
+        inst.parent_bone = s.hold_chest_bone
+        context.view_layer.update()
+        inst.matrix_world = mw
+
+        # 2. One target per hand, child of the instrument, at the hand's current place
+        made = []
+        for side, bone_name in (("L", s.hold_hand_l), ("R", s.hold_hand_r)):
+            pb = rig.pose.bones[bone_name]
+            for c in [c for c in pb.constraints if c.name.startswith(HOLD_PREFIX)]:
+                pb.constraints.remove(c)
+            if pb.parent:
+                for c in [c for c in pb.parent.constraints if c.name.startswith(HOLD_PREFIX)]:
+                    pb.parent.constraints.remove(c)
+            context.view_layer.update()
+
+            name = f"{HOLD_PREFIX} {side}"
+            tgt = bpy.data.objects.get(name)
+            if tgt is None:
+                tgt = bpy.data.objects.new(name, None)
+                tgt.empty_display_type = "SPHERE"
+                tgt.empty_display_size = 0.03 * max(rig.dimensions) / 2 or 0.05
+                (inst.users_collection[0] if inst.users_collection else context.scene.collection).objects.link(tgt)
+            hand_mw = rig.matrix_world @ pb.matrix
+            tgt.parent = inst
+            tgt.parent_type = "OBJECT"
+            context.view_layer.update()
+            tgt.matrix_world = hand_mw
+
+            # Arm IK on the forearm (2 bones) reaches the wrist; the hand copies the target's rotation
+            if pb.parent:
+                ik = pb.parent.constraints.new("IK")
+                ik.name = f"{HOLD_PREFIX} IK"
+                ik.target = tgt
+                ik.chain_count = 2
+                ik.use_tail = True
+                ik.use_stretch = False
+            cr = pb.constraints.new("COPY_ROTATION")
+            cr.name = f"{HOLD_PREFIX} Rotation"
+            cr.target = tgt
+            made.append(tgt.name)
+        context.view_layer.update()
+        self.report({"INFO"}, f"{inst.name} hangs from {s.hold_chest_bone}; hands locked to {', '.join(made)}. "
+                              "Move the targets to adjust the grip")
+        return {"FINISHED"}
+
+
+class MIDIANIM_OT_unlock_hands(bpy.types.Operator):
+    """Remove the hand lock constraints and targets (the instrument stays on the strap bone)"""
+    bl_idname = "midianim.unlock_hands"
+    bl_label = "Unlock Hands"
+    bl_options = {"REGISTER", "UNDO"}
+
+    def execute(self, context):
+        s = context.scene.midi_animator
+        rig = s.fing_target
+        n = 0
+        if rig:
+            for pb in rig.pose.bones:
+                for c in [c for c in pb.constraints if c.name.startswith(HOLD_PREFIX)]:
+                    pb.constraints.remove(c)
+                    n += 1
+        for side in ("L", "R"):
+            o = bpy.data.objects.get(f"{HOLD_PREFIX} {side}")
+            if o:
+                bpy.data.objects.remove(o)
+        self.report({"INFO"}, f"Removed {n} hold constraints")
+        return {"FINISHED"}
+
+
 class MIDIANIM_OT_analyze(bpy.types.Operator):
     """Read the MIDI file: tracks, notes, breath controller and which fingering poses are missing"""
     bl_idname = "midianim.analyze"
@@ -1007,11 +1233,16 @@ class MIDIANIM_OT_analyze(bpy.types.Operator):
         for n in midi.notes:
             if (s.fing_track < 0 or n.track == s.fing_track) and \
                (s.fing_channel <= 0 or n.channel == s.fing_channel - 1):
+                if s.fing_mode == "CHART":
+                    missing.update(chart_pose(s, n.pitch)[1])
+                    continue
                 act, use_oct, wanted = fingering_for(s, n.pitch)
                 if act is None:
                     missing.add(wanted)
                 if use_oct and not bpy.data.actions.get(s.fing_prefix + "OctaveKey"):
                     missing.add(s.fing_prefix + "OctaveKey")
+        if s.fing_mode == "CHART" and not bpy.data.actions.get(s.fing_prefix + "Rest"):
+            missing.add(s.fing_prefix + "Rest")
         s.fing_missing = ", ".join(sorted(m[len(s.fing_prefix):] for m in missing))
         s.summary = "|".join(lines)
         self.report({"INFO"}, lines[0])
@@ -1369,6 +1600,29 @@ class MIDIANIM_PT_setup(MIDIANIM_PT_base, bpy.types.Panel):
         col.operator("midianim.bind_mesh", icon="MOD_ARMATURE")
 
 
+class MIDIANIM_PT_hold(MIDIANIM_PT_base, bpy.types.Panel):
+    bl_label = "Hold the Instrument"
+    bl_parent_id = "MIDIANIM_PT_setup"
+
+    def draw(self, context):
+        s = context.scene.midi_animator
+        layout = self.layout
+        col = layout.column()
+        col.label(text="Pose the hold first: mouthpiece at the lips,", icon="INFO")
+        col.label(text="left hand on top, right hand below, then lock.")
+        col.prop(s, "fing_target", text="Rig")
+        col.prop(s, "hold_instrument")
+        rig = s.fing_target
+        if rig and rig.type == "ARMATURE":
+            col.prop_search(s, "hold_chest_bone", rig.data, "bones")
+            col.prop_search(s, "hold_hand_l", rig.data, "bones")
+            col.prop_search(s, "hold_hand_r", rig.data, "bones")
+            col.operator("midianim.guess_hold_bones", icon="VIEWZOOM")
+        row = col.row(align=True)
+        row.operator("midianim.lock_hands", icon="LOCKED")
+        row.operator("midianim.unlock_hands", text="", icon="UNLOCKED")
+
+
 class MIDIANIM_PT_midi(MIDIANIM_PT_base, bpy.types.Panel):
     bl_label = "2. MIDI & Audio"
 
@@ -1400,13 +1654,19 @@ class MIDIANIM_PT_fingering(MIDIANIM_PT_base, bpy.types.Panel):
         s = context.scene.midi_animator
         layout = self.layout
         layout.prop(s, "fing_target")
+        layout.prop(s, "fing_mode", text="")
         box = layout.box()
-        box.label(text="Pose the fingers, select those bones, then:", icon="HAND")
+        if s.fing_mode == "CHART":
+            box.label(text="Rest: pose the hold, select ALL finger joints, Save.", icon="HAND")
+            box.label(text="Others: press one finger (all its joints), select them, Save.")
+        else:
+            box.label(text="Pose the fingers, select those bones, then:", icon="HAND")
         row = box.row(align=True)
         row.prop(s, "save_note", text="")
         row.operator("midianim.save_fingering", text="Save", icon="FILE_TICK")
         row.operator("midianim.preview_fingering", text="", icon="HIDE_OFF")
-        saved = [n for n in FINGERING_NAMES if bpy.data.actions.get(s.fing_prefix + n)]
+        names = [n for n, _ in CHART_ELEMENTS] if s.fing_mode == "CHART" else FINGERING_NAMES
+        saved = [n for n in names if bpy.data.actions.get(s.fing_prefix + n)]
         box.label(text=f"Saved: {', '.join(saved) if saved else 'none yet'}")
         if s.fing_missing:
             box.label(text=f"Needed by this MIDI: {s.fing_missing}", icon="ERROR")
@@ -1532,6 +1792,9 @@ classes = (
     MIDIANIM_OT_import_model,
     MIDIANIM_OT_add_metarig,
     MIDIANIM_OT_bind_mesh,
+    MIDIANIM_OT_guess_hold_bones,
+    MIDIANIM_OT_lock_hands,
+    MIDIANIM_OT_unlock_hands,
     MIDIANIM_OT_analyze,
     MIDIANIM_OT_set_scene_range,
     MIDIANIM_OT_add_audio,
@@ -1548,6 +1811,7 @@ classes = (
     MIDIANIM_UL_mappings,
     MIDIANIM_UL_effects,
     MIDIANIM_PT_setup,
+    MIDIANIM_PT_hold,
     MIDIANIM_PT_midi,
     MIDIANIM_PT_fingering,
     MIDIANIM_PT_effects,
