@@ -88,6 +88,12 @@ def test_up_hovers_over_last_pressed_key():
     assert state_at(tl.keys["L4"], 25) == ("up", "LowB")
 
 
+def test_unchanging_finger_still_keyed():
+    notes = [(10, 20, n("G4")), (20, 30, n("A4"))]      # R4 never presses
+    tl = F.build_timeline(notes, chart_mapping(), SLOTS, HOMES, F.TimingParams(use_rest=False))
+    assert tl.keys["R4"] == [(8, ("up", "LowEb"))]
+
+
 def test_combination_label():
     assert F.combination_label(SAX.chart[n("D5")], SAX.slots) == "LT L1 L2 L3 | R1 R2 R3"
     assert F.combination_label(SAX.chart[n("C4")], SAX.slots).endswith("R4:LowC")

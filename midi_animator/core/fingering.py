@@ -93,6 +93,12 @@ def build_timeline(notes, mapping, slots, homes, params):
     if prev_end is not None and params.use_rest:
         for slot in slots:
             move(slot, REST, prev_end + tr, tr)
+    # A finger that never changes still needs one key, or it would sit in the rig's rest pose
+    if playable:
+        first = playable[0][0] - tr
+        for slot in slots:
+            if not keys[slot]:
+                keys[slot].append((first, current[slot]))
     return Timeline(keys, missing, len(playable))
 
 
