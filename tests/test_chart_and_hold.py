@@ -177,8 +177,43 @@ def main():
     assert not any(c.name.startswith("MIDI Hold") for b in pb for c in b.constraints)
     assert "MIDI Hold L" not in bpy.data.objects
 
+    # Per Finger mode without a Rest pose: the bake reports Rest as missing
+    scene = bpy.context.scene
+    s = scene.midi_animator
+    bpy.data.actions.remove(bpy.data.actions[s.fing_prefix + "Rest"])
+    _, missing = ma.bake_fingering(scene, s, ma.load_midi(s))
+    assert s.fing_prefix + "Rest" in missing, missing
+
+    rigify_hold()
     ma.unregister()
     print("ALL CHART/HOLD TESTS PASSED")
+
+
+def rigify_hold():
+    """On a generated Rigify rig, Guess Bones picks the IK hand controls and the lock holds."""
+    import addon_utils
+    bpy.ops.wm.read_factory_settings(use_empty=True)
+    addon_utils.enable("rigify", default_set=True)
+    bpy.ops.object.armature_human_metarig_add()
+    bpy.ops.pose.rigify_generate()
+    rig = bpy.context.view_layer.objects.active
+    s = bpy.context.scene.midi_animator
+    s.fing_target = rig
+    assert bpy.ops.midianim.guess_hold_bones() == {"FINISHED"}
+    assert (s.hold_hand_l, s.hold_hand_r) == ("hand_ik.L", "hand_ik.R"), (s.hold_hand_l, s.hold_hand_r)
+    assert s.hold_chest_bone == "chest", s.hold_chest_bone
+    bpy.ops.mesh.primitive_cylinder_add(radius=0.03, depth=0.6, location=(0, -0.3, 1.3))
+    sax = bpy.context.active_object
+    s.hold_instrument = sax
+    bpy.context.view_layer.objects.active = rig
+    assert bpy.ops.midianim.lock_hands() == {"FINISHED"}
+    sax.location += Vector((0.15, -0.1, 0.05))
+    bpy.context.view_layer.update()
+    for side in "LR":
+        t = bpy.data.objects[f"MIDI Hold {side}"].matrix_world.translation
+        h = (rig.matrix_world @ rig.pose.bones[f"DEF-hand.{side}"].matrix).translation
+        assert (t - h).length < 1e-3, (side, (t - h).length)
+    print("rigify hold OK")
 
 
 main()

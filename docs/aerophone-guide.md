@@ -40,7 +40,8 @@ the index, middle and ring fingers rest on F, E and D. The pinkies hover over th
 2. Pose both arms and hands onto it, with each finger lightly curled over its key.
 3. Open **1. Models & Rigs > Hold the Instrument**. Set the Rig and the Instrument (the sax
    body; the bell can stay its child), then click **Guess Bones**. Check the Strap Bone (a chest
-   bone, for example `Bip01_Spine2`) and the two Hand bones.
+   bone, for example `Bip01_Spine2`) and the two Hand bones. On a Rigify rig the hands should be
+   the IK controls `hand_ik.L` and `hand_ik.R`, with the arms in IK mode (the default), and the lock pins those controls.
 4. Click **Lock Hands to Instrument**. The sax now hangs from the chest bone, and two small
    targets (`MIDI Hold L` and `MIDI Hold R`) keep the hands glued to it with IK, wherever the body moves.
    To adjust the grip, move those targets. The unlock button removes the lock.
