@@ -19,7 +19,7 @@ note HUD. Built first for wind controllers such as the **Roland Aerophone GO**:
 Everything is baked into NLA tracks named `MIDI: …`, so you can re-bake at any time without
 touching your own animation.
 
-The design is in **[docs/SPEC.md](docs/SPEC.md)** and the walkthrough in
+The design is in **[docs/SPEC.md](docs/SPEC.md)** (reasons in [docs/decisions/](docs/decisions/)) and the walkthrough in
 **[docs/aerophone-guide.md](docs/aerophone-guide.md)**.
 
 ## Install
