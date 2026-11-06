@@ -81,6 +81,7 @@ def main():
     s = scene.midi_animator
     s.midi_path = MID
     s.fing_target = rig
+    s.fing_mode = "POSES"  # whole-hand poses per note (see test_chart_and_hold.py for the chart)
 
     # Parser
     midi = ma.parse_midi(MID)

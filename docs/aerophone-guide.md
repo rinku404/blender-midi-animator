@@ -26,8 +26,24 @@ If the two exports start at the same time, Blender's **Start Frame** puts them i
   Each file goes into its own collection.
 - Rig it if it isn't rigged: **Add Rigify Human Metarig**, fit the bones, then Armature tab > Generate
   Rig. Select the mesh, shift-select the rig, then click **Bind Selected Meshes to Rig**.
-- **Hold the instrument:** pose the hands around it. Then select the instrument, shift-select the rig,
-  go into Pose Mode, make the right hand bone active and press Ctrl+P > Bone. The instrument now follows that hand.
+- **Hold the instrument:** see the next section.
+
+## 2b. Hold the sax like a player
+
+A real alto or tenor sax hangs from a neck strap at chest height. It angles down and to the
+player's right, with the mouthpiece in the mouth and the bell near the right hip. The **left hand
+is on top**: the thumb is on the thumb rest and octave key, and the index, middle and ring fingers
+rest on the B, A and G keys. The **right hand is below**: the thumb hooks under the thumb rest, and
+the index, middle and ring fingers rest on F, E and D. The pinkies hover over the side keys.
+
+1. Place the sax: mouthpiece at the lips, angled as described above.
+2. Pose both arms and hands onto it, with each finger lightly curled over its key.
+3. Open **1. Models & Rigs > Hold the Instrument**. Set the Rig and the Instrument (the sax
+   body; the bell can stay its child), then click **Guess Bones**. Check the Strap Bone (a chest
+   bone, for example `Bip01_Spine2`) and the two Hand bones.
+4. Click **Lock Hands to Instrument**. The sax now hangs from the chest bone, and two small
+   targets (`MIDI Hold L` and `MIDI Hold R`) keep the hands glued to it with IK, wherever the body moves.
+   To adjust the grip, move those targets. The unlock button removes the lock.
 
 ## 3. The cheek puff shape key
 
@@ -48,26 +64,39 @@ If the two exports start at the same time, Blender's **Start Frame** puts them i
 
 ## 5. Pose the fingerings
 
-The add-on looks for actions named `Fingering_<note>`. You don't make these by hand: the **Save** button does it.
+Real players barely move their fingers: a note change is about 1 cm of press or lift on single
+fingers, seen mostly in the middle and tip joints. The default **Per Finger (sax chart)** mode works
+that way. You pose each finger pressing its key once, and the built-in saxophone chart presses the
+right fingers for every note. Fingers that a note doesn't use stay resting on their keys.
 
-1. In **3. Fingering**, set **Character Rig** to your armature.
-2. Go into Pose Mode. Pose the fingers (and thumb) for a note and **select only the finger bones**.
-3. Pick the note from the dropdown and click **Save**. The eye button loads a saved pose back so you can tweak it.
-4. Repeat for the poses you need:
+1. In **3. Fingering**, set **Character Rig** and keep the mode on **Per Finger (sax chart)**.
+2. Go into Pose Mode with the hold from section 2b.
+3. **Rest:** all fingers resting lightly curled on their keys, nothing pressed. Select **every
+   joint of every finger and both thumbs**, pick `Rest` and click **Save**.
+4. For each element below, press **only that finger**: bend its middle and tip joints a few degrees
+   so the pad closes the key. Select **all 3 joints of that finger**, pick the element and click
+   **Save**. Then put the finger back to rest before doing the next one.
 
-| Save as | Used for |
-|---|---|
-| `C` … `B` (12 pitch classes) | The main octave, written D4 to C#5, and again with the octave key from D5 to C#6. Pose `C` as **middle C** (C5) |
-| `OctaveKey` | **Only the thumb** pressing the octave key. It's layered on top of the main fingering from D5 up |
-| `Rest` | Relaxed hand, used during rests longer than "Relax After" |
-| `A#3`, `B3`, `C4`, `C#4` | Optional low-note fingerings (pinky keys). Without them, the main-octave pose is used |
-| `C5`, `C#5`, `D6`…`F#6` | Optional overrides, for example palm keys up top |
+| Element | Finger | Key |
+|---|---|---|
+| `L1` `L2` `L3` | left index, middle, ring | B, A, G |
+| `LP` | left pinky | G# and the low B / Bb / C# keys |
+| `R1` `R2` `R3` | right index, middle, ring | F, E, D |
+| `RP` | right pinky | low C and Eb |
+| `OctaveKey` | left thumb | octave key, used from D5 up |
+| `Palm` | left hand | palm keys for the top notes (D6 to F#6) |
 
-Click **Analyze MIDI** with your file loaded and the Fingering panel lists any poses this recording still needs.
+That's 11 small poses. **Analyze MIDI** lists any that the recording still needs. The 👁 button
+loads a saved element so you can check it.
+
+Bake with **Transition** at 2 to 3 frames. Fingers then press and lift quickly, like on a real horn.
 
 **Transpose:** the add-on uses the note numbers the Aerophone sends. If the fingers look shifted
-(for example you finger a C but the rig shows a D), set **Transpose** to the difference in semitones. You
-only need to do this once.
+(you finger a G but the rig shows an A), set **Transpose** to the difference in semitones. Alto
+sax players reading concert pitch usually need +9, and tenor +14.
+
+*The older Whole-Hand Pose per Note mode (`Fingering_C`, `Fingering_D`, …) is still in the mode
+dropdown, but it makes the whole hand morph between notes.*
 
 ## 6. Breath effects
 
@@ -103,8 +132,11 @@ into a `Base: …` track underneath, so it keeps playing under the fingers and b
 
 ## Troubleshooting
 
-- **The fingers don't move:** check that the poses only key finger bones, that **Bake Fingering** is
-  ticked, and that Analyze doesn't list missing poses.
+- **The fingers swing stiffly:** the poses only key the base joint of each finger. Re-save them with
+  all 3 joints selected (section 5).
+- **The sax drifts away from the hands:** lock it (section 2b). Parenting it to the Armature object
+  or to one hand doesn't keep both hands on it.
+- **The fingers don't move:** check that **Bake Fingering** is ticked and that Analyze doesn't list missing poses.
 - **The fingers move but look one note off:** adjust **Transpose**.
 - **The cheeks don't move:** the shape key must be named exactly as in the effect (default `CheekPuff`),
   and the effect's target must be the mesh that has it.
