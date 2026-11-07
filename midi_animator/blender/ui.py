@@ -85,6 +85,17 @@ class MIDIANIM_PT_fingers(MIDIANIM_PT_base, bpy.types.Panel):
         s = state.settings(context)
         layout = self.layout
         layout.prop(s, "rig")
+        box = layout.box()
+        box.label(text="Hold the instrument", icon="CON_CHILDOF")
+        box.prop(s, "instrument")
+        if s.rig:
+            for attr in ("hold_strap_bone", "hold_hand_l", "hold_hand_r"):
+                box.prop_search(s, attr, s.rig.data, "bones")
+        r = box.row(align=True)
+        r.operator("midianim.guess_hold_bones", icon="VIEWZOOM")
+        r.operator("midianim.lock_hands", icon="LOCKED")
+        r.operator("midianim.unlock_hands", icon="UNLOCKED")
+        box.label(text="Pose the hold first: instrument at the lips, hands on the keys")
         layout.operator("midianim.detect_fingers", icon="HAND")
         if not s.fingers:
             layout.label(text="Detect Fingers (or Analyze) to list the finger slots")

@@ -26,8 +26,23 @@ breathes with its chest, and a note HUD you can lay over the video.
 **2. Fingers & Keys**
 1. Set **Character Rig** and click **Detect Fingers**. Rigify, Mixamo and VRoid names are recognised.
    Fix any finger by picking its bones (root → tip).
-2. Pose the character holding the instrument (hands where they will be while playing), with the
-   instrument parented to a hand bone. Set **Instrument** to it.
+2. **Hold the instrument.** A real sax hangs from a neck strap at chest height, angled down and to
+   the player's right, with the mouthpiece in the mouth and the bell near the right hip. The **left
+   hand is on top** (thumb on the thumb rest and octave key; index, middle and ring on B, A and G).
+   The **right hand is below** (thumb under the thumb rest; index, middle and ring on F, E and D).
+   The pinkies hover over the side keys.
+   1. Place the instrument at the lips, angled like that, and pose both arms and hands onto it,
+      each finger lightly curled over its key.
+   2. In the **Hold the instrument** box set **Instrument** (the sax body; the bell can stay its
+      child) and click **Guess Bones**. Check the **Strap Bone** (an upper-chest bone, for example
+      `mixamorig:Spine2` or Rigify's `spine.003`) and the two **Hand** bones.
+   3. Click **Lock**. The instrument now hangs from the strap bone, and two small targets
+      (`MIDI Hold L` and `MIDI Hold R`) keep the hands glued to it with IK wherever the body moves.
+      To adjust the grip, move those targets. **Unlock** removes the targets and constraints (the
+      instrument stays on the strap).
+   The Chest breathing effect scales the chest bone but never the instrument. Expect the hands to
+   sit up to about a centimetre off their targets at the peak of a breath, because Blender's IK is
+   not exact under a scaled parent. Lower the Chest effect's *Max* if that bothers you.
 3. **Place key markers.** Select a finger in the list. For each of its keys, put the 3D cursor on
    the key (or select the key's vertices in Edit Mode, and the marker's arrow follows their normal)
    and click **Place**. The arrow should point out of the key, toward where the finger lifts.
@@ -89,6 +104,7 @@ Export needs Blender's UI (it draws with the GPU), not `blender -b`.
 
 ## Troubleshooting
 
+- **The sax drifts away from the hands:** use **Lock** in the Hold box. Parenting it to the Armature object or to one hand doesn't keep both hands on it.
 - **A finger doesn't move:** check its bones in panel 2 and that its markers exist, then run Autoassign. Bake lists missing poses.
 - **The fingertip misses the key:** move the marker and run Autoassign again (unlock the pose if you edited it).
 - **Wrong notes fingered:** adjust **Transpose**.

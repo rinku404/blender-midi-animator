@@ -81,3 +81,52 @@ def chains_for_slots(slots, bones):
     """{slot_id: [bone names]} for the profile's finger slots."""
     found = detect_finger_chains(bones)
     return {s.id: found[(s.side, s.finger)] for s in slots if (s.side, s.finger) in found}
+
+
+# -- "Hold the Instrument": strap and hand bones -------------------------------
+
+# Strap bone candidates, best first: the upper torso, where a neck strap hangs.
+STRAP_KEYWORDS = ("spine2", "spine4", "spine3", "upperchest", "upper_chest", "spine.003", "chest",
+                  "spine1", "spine")
+_HOLD_EXCLUDE = ("org-", "def-", "mch-", "twist", "tweak", "target", "pole", "master", "socket")
+
+
+def _hold_ok(name):
+    low = name.lower()
+    return not any(x in low for x in _HOLD_EXCLUDE) and _finger(name) is None
+
+
+def _strap_rank(name):
+    low = name.lower().replace("mixamorig:", "")
+    for i, kw in enumerate(STRAP_KEYWORDS):
+        if low == kw:
+            return i * 2
+    for i, kw in enumerate(STRAP_KEYWORDS):
+        if kw in low:
+            return i * 2 + 1
+    return None
+
+
+def _hand_rank(name):
+    low = name.lower()
+    if "hand" not in low or "ik" in re.split(r"[._:\-\s]+", low):
+        return None
+    if re.fullmatch(r"(mixamorig:)?(left|right)?hand([._\-]?[lr])?", low) or re.fullmatch(
+            r"(j_bip_[lr]_hand|bip\d* [lr] hand|[lr]_?hand)", low):
+        return 0
+    return 1 if "_fk" not in low else 2
+
+
+def guess_hold_bones(bones):
+    """bones: [(name, parent_name_or_None)]. Returns (strap, hand_l, hand_r); '' where nothing fits."""
+    names = [n for n, _ in bones if _hold_ok(n)]
+    strap = ""
+    ranked = sorted(((_strap_rank(n), n) for n in names if _strap_rank(n) is not None
+                     and _side(n) is None))
+    if ranked:
+        strap = ranked[0][1]
+    hands = {}
+    for side in ("L", "R"):
+        c = sorted((_hand_rank(n), len(n), n) for n in names if _side(n) == side and _hand_rank(n) is not None)
+        hands[side] = c[0][2] if c else ""
+    return strap, hands["L"], hands["R"]

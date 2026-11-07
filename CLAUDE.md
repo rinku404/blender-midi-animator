@@ -20,7 +20,7 @@ Read `docs/plan/AGENT_BRIEF.md` first and follow it: one step per branch, and a 
   (`fingering.py`), rig-name finger detection (`rigs.py`), HUD layout (`hud.py`), note names (`notes.py`).
 - `midi_animator/blender/`: thin Blender layer: `props.py` (Scene.midi_animator), `ops.py`,
   `ui.py` (sidebar tab "MIDI"), `rig.py` (finger slots, key markers), `autoassign.py`
-  (IK → pose assets, locks), `bake.py` (NLA baking), `hud_draw.py` (gpu/blf preview + export),
+  (IK → pose assets, locks), `hold.py` (instrument on a strap bone, hands IK-locked to it), `bake.py` (NLA baking), `hud_draw.py` (gpu/blf preview + export),
   `actions.py` (slotted-action / NLA helpers), `state.py` (shared helpers).
 - `midi_animator/__init__.py` imports `bpy` only inside `register()`. Keep it that way so
   `core` stays testable.
@@ -35,7 +35,7 @@ blender --command extension validate midi_animator                   # manifest 
 New logic goes in `core/` with a pytest test whenever it doesn't need Blender.
 
 ## Status (2026-11-06)
-- `core/`: done, 28 tests passing.
+- `core/`: done, 32 tests passing.
 - `blender/`: `tests/test_in_blender.py` passes in Blender 5.2.3 (2026-11-07), and the built
   extension installs and enables. Still never run: HUD preview/export in `hud_draw.py` (ProRes 4444
   encode, composite scene). Those need the UI (GPU), not `-b`.

@@ -222,6 +222,9 @@ class MIDIANIM_Settings(bpy.types.PropertyGroup):
     rig: PointerProperty(name="Character Rig", type=bpy.types.Object, poll=_poll_armature)
     instrument: PointerProperty(name="Instrument", type=bpy.types.Object,
                                 description="Key markers are created as children of this object")
+    hold_strap_bone: StringProperty(name="Strap Bone", description="Bone the instrument hangs from (upper chest)")
+    hold_hand_l: StringProperty(name="Left Hand", description="Left hand bone (the forearm above it gets the IK)")
+    hold_hand_r: StringProperty(name="Right Hand", description="Right hand bone (the forearm above it gets the IK)")
     fingers: CollectionProperty(type=MIDIANIM_FingerBones)
     finger_index: IntProperty(default=0)
     hover: FloatProperty(name="Hover Height", default=0.012, min=0.0, unit="LENGTH",
