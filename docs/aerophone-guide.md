@@ -1,145 +1,96 @@
 # Aerophone GO → Blender: step by step
 
-This guide takes you from playing your Aerophone to a rendered character that fingers the notes,
-puffs its cheeks and makes the bell swell with your breath.
+From a take on your Aerophone to a character that fingers the notes, puffs its cheeks,
+breathes with its chest, and a note HUD you can lay over the video.
 
 ## 1. Record in Reaper
 
-1. Connect the Aerophone GO over USB, or Bluetooth MIDI on a Mac. In Reaper go to
-   Options > Preferences > MIDI Inputs and enable the Aerophone. If you also want its sound, set up
-   the audio input under Options > Preferences > Audio > Device.
-2. Make a track, set its input to **MIDI > Aerophone GO > All channels**, arm it and record.
-   If you want to hear the Aerophone's own sound, record a second track with its audio.
-3. **Keep the breath data.** The Aerophone sends breath as a continuous MIDI controller (usually
-   CC2, or CC11/aftertouch depending on its settings). Reaper records it along with the notes, and you
-   can see it in the MIDI editor's CC lane. Don't quantize or thin it.
-4. Export the MIDI: select the item, then File > Export project MIDI… (or right-click the item >
-   Source properties > Export to new MIDI file).
-5. Export the audio: File > Render… to a WAV file, starting at the same project position as the MIDI.
+1. Enable the Aerophone under Options > Preferences > MIDI Inputs.
+2. Record a track with input **MIDI > Aerophone GO > All channels**. Record the audio on a second track if you want it.
+3. **Keep the breath data.** The Aerophone sends breath as CC2 by default. Don't quantize or thin the CC lane.
+4. Export the MIDI (File > Export project MIDI…) and render the audio to WAV from the same start position.
 
-If the two exports start at the same time, Blender's **Start Frame** puts them in sync. Use
-**Offset (s)** to fix any small lag.
+## 2. Load the MIDI
 
-## 2. Bring in the character and the instrument
+**1. Instrument & MIDI**
+1. Instrument: **Monophonic Wind / Brass**.
+2. Choose the .mid file and click **Analyze MIDI**. The report lists the tracks, the notes the
+   performer plays, the controllers found (look for CC2), and anything still missing.
+3. If the file has several tracks, click the dot next to the one you played.
+4. **Transpose:** the fingering chart uses *written* sax pitch. If the Aerophone is set to an alto
+   or tenor key, it may already send written pitch (0). If the fingers look shifted, set the difference in semitones here.
+5. **Fit Scene Range**, then choose the WAV and **Add Audio**.
 
-- **1. Models & Rigs > Import Model** brings in a rigged FBX or GLB (Mixamo, VRoid, Auto-Rig Pro…).
-  Each file goes into its own collection.
-- Rig it if it isn't rigged: **Add Rigify Human Metarig**, fit the bones, then Armature tab > Generate
-  Rig. Select the mesh, shift-select the rig, then click **Bind Selected Meshes to Rig**.
-- **Hold the instrument:** see the next section.
+## 3. Fingers and keys
 
-## 2b. Hold the sax like a player
+**2. Fingers & Keys**
+1. Set **Character Rig** and click **Detect Fingers**. Rigify, Mixamo and VRoid names are recognised.
+   Fix any finger by picking its bones (root → tip).
+2. Pose the character holding the instrument (hands where they will be while playing), with the
+   instrument parented to a hand bone. Set **Instrument** to it.
+3. **Place key markers.** Select a finger in the list. For each of its keys, put the 3D cursor on
+   the key (or select the key's vertices in Edit Mode, and the marker's arrow follows their normal)
+   and click **Place**. The arrow should point out of the key, toward where the finger lifts.
+4. **Hover Height:** how high a lifted finger floats above its key.
+5. Click **Autoassign Finger Poses**. Every finger is solved onto each of its markers (Down) and
+   above it (Up) and saved as pose assets such as `F.L1.B.Down`.
+6. Check a pose with the eye button. To fix one, apply it, tweak the bones, and update the pose
+   asset. The pose locks itself and Autoassign won't overwrite it. You can also toggle the lock
+   by hand, or tick **Overwrite Locked** to regenerate everything.
+7. Optional: give a finger an authored **Up Pose** instead of hovering.
 
-A real alto or tenor sax hangs from a neck strap at chest height. It angles down and to the
-player's right, with the mouthpiece in the mouth and the bell near the right hip. The **left hand
-is on top**: the thumb is on the thumb rest and octave key, and the index, middle and ring fingers
-rest on the B, A and G keys. The **right hand is below**: the thumb hooks under the thumb rest, and
-the index, middle and ring fingers rest on F, E and D. The pinkies hover over the side keys.
+## 4. Note map
 
-1. Place the sax: mouthpiece at the lips, angled as described above.
-2. Pose both arms and hands onto it, with each finger lightly curled over its key.
-3. Open **1. Models & Rigs > Hold the Instrument**. Set the Rig and the Instrument (the sax
-   body; the bell can stay its child), then click **Guess Bones**. Check the Strap Bone (a chest
-   bone, for example `Bip01_Spine2`) and the two Hand bones.
-4. Click **Lock Hands to Instrument**. The sax now hangs from the chest bone, and two small
-   targets (`MIDI Hold L` and `MIDI Hold R`) keep the hands glued to it with IK, wherever the body moves.
-   To adjust the grip, move those targets. The unlock button removes the lock.
+**3. Note Map**
+1. **Fill: This File** maps every note in the take from the built-in sax chart (**Fill: Whole Chart** maps Bb3–F6).
+2. Click a note to see its fingers. Each finger row has `up` plus the keys it can press, so you can
+   change any of them. Copy and paste fingerings between notes.
+3. **Whole-hand Pose:** use a pose asset for that note instead of the combination (a trill shape, a gesture).
+4. **Rest Pose:** a relaxed hand between phrases. Select the hand and finger bones in Pose Mode
+   and use **Save Pose Asset** with "Use As: Rest Pose".
+5. Timing: **Transition** (frames a finger takes to move), **Lift Lead** (frames lifting fingers
+   leave early) and **Relax After** (rest length before the hand relaxes).
 
-## 3. The cheek puff shape key
+Palm keys are simplified to one marker each: `PalmD`, `PalmEb` (D+Eb pressed together) and
+`PalmF` (D+Eb+F). Place those markers where the palm presses each combination.
 
-1. Select the face or body mesh. In Object Data Properties > Shape Keys, click **+** twice to get
-   `Basis` and a second key. Rename the second one exactly **`CheekPuff`**.
-2. With `CheekPuff` selected, go into Sculpt Mode. Use the **Inflate** or **Grab** brush on both
-   cheeks, with X symmetry on, until they look fully blown.
-3. Back in Object Mode, slide the value from 0 to 1 to check it. The add-on animates this value.
+## 5. Blow
 
-## 4. Make the bell its own object
+**4. Blow**: click **Cheeks** (select the face mesh first) and **Chest**.
 
-1. Select the instrument and go into Edit Mode. Select the bell faces (L over them, or box select), then
-   press **P > Selection**. The bell is now a separate object.
-2. Put its origin where the bell joins the body, so it grows outward from there. Snap the 3D cursor
-   to the joint (select a vertex there, then Shift+S > Cursor to Selected). Back in Object Mode, use
-   Object > Set Origin > Origin to 3D Cursor.
-3. Parent the bell to the instrument body: select the bell, shift-select the body, then Ctrl+P > Object.
-
-## 5. Pose the fingerings
-
-Real players barely move their fingers: a note change is about 1 cm of press or lift on single
-fingers, seen mostly in the middle and tip joints. The default **Per Finger (sax chart)** mode works
-that way. You pose each finger pressing its key once, and the built-in saxophone chart presses the
-right fingers for every note. Fingers that a note doesn't use stay resting on their keys.
-
-1. In **3. Fingering**, set **Character Rig** and keep the mode on **Per Finger (sax chart)**.
-2. Go into Pose Mode with the hold from section 2b.
-3. **Rest:** all fingers resting lightly curled on their keys, nothing pressed. Select **every
-   joint of every finger and both thumbs**, pick `Rest` and click **Save**.
-4. For each element below, press **only that finger**: bend its middle and tip joints a few degrees
-   so the pad closes the key. Select **all 3 joints of that finger**, pick the element and click
-   **Save**. Then put the finger back to rest before doing the next one.
-
-| Element | Finger | Key |
+| Preset | Drives | Mode |
 |---|---|---|
-| `L1` `L2` `L3` | left index, middle, ring | B, A, G |
-| `LP` | left pinky | G# and the low B / Bb / C# keys |
-| `R1` `R2` `R3` | right index, middle, ring | F, E, D |
-| `RP` | right pinky | low C and Eb |
-| `OctaveKey` | left thumb | octave key, used from D5 up |
-| `Palm` | left hand | palm keys for the top notes (D6 to F#6) |
+| Cheeks | `CheekPuff` shape key, 0 → 1 | **Direct**: follows the blow |
+| Chest | chest bone, scale X+Z, +0 → +4% | **Lung**: full before a phrase, empties while you blow, refills in rests |
 
-That's 11 small poses. **Analyze MIDI** lists any that the recording still needs. The 👁 button
-loads a saved element so you can check it.
+- **Source:** CC2 by default. If Analyze finds no CC2, the effect shows **Use Velocity** / **Turn Off**.
+  It isn't baked until you choose. Velocity rises to the note's velocity and decays to **Sustain**.
+- **Min / Max:** output at no blow and full blow (Lung: empty and full lungs). Rotations are in degrees.
+- **Attack / Release:** how fast it follows. **Lung Capacity:** seconds of full blow that empty the lungs.
+- Advanced: threshold, curve, normalize, blend, and a separate track/channel if the breath was recorded elsewhere.
 
-Bake with **Transition** at 2 to 3 frames. Fingers then press and lift quickly, like on a real horn.
+## 6. Bake
 
-**Transpose:** the add-on uses the note numbers the Aerophone sends. If the fingers look shifted
-(you finger a G but the rig shows an A), set **Transpose** to the difference in semitones. Alto
-sax players reading concert pitch usually need +9, and tenor +14.
+**6. Bake > Bake MIDI to Animation.** The status bar lists what was baked and anything missing
+(unmapped notes, poses not generated yet, blow sources you haven't decided on). Change something? Bake again.
+Your rig's active action (for example an idle) moves to a `Base:` track underneath.
 
-*The older Whole-Hand Pose per Note mode (`Fingering_C`, `Fingering_D`, …) is still in the mode
-dropdown, but it makes the whole hand morph between notes.*
+## 7. Note HUD
 
-## 6. Breath effects
+**5. Note HUD**
+1. Tick the panel header to preview it in the viewport and scrub the timeline.
+2. Size, look-ahead, hit-line position, names (written or concert, letters or Dó Ré Mi, sharps
+   or flats) and colours.
+3. **Export HUD** renders the scene's frame range to `hud_####.png` with transparency (pick ProRes
+   4444 to also get a .mov). In DaVinci Resolve, drop the image sequence on a track above your video.
+4. Or **Make Composite Scene**: a new scene that renders your scene with the HUD at the bottom.
 
-In **4. Breath Effects**, click the presets. Select the matching object first, and the preset picks it up.
-
-| Preset | Drives | Starts with |
-|---|---|---|
-| **Cheeks** | `CheekPuff` shape key, 0 → 1 | quick attack 0.04 s, release 0.15 s, curve 0.8 (soft breath already shows) |
-| **Bell** | Bell scale, 1.0× → 1.3× its rest scale | attack 0.05 s, release 0.2 s |
-| **Chest** | Chest bone rotation, small and added on top | slow, 0.15 / 0.4 s |
-| **Sway** | Spine or hips rotation, a gentle lean with phrases | very slow, 0.6 / 1.2 s |
-
-What each setting does:
-- **Source:** *Breath (auto-detect)* finds CC2, CC11 or aftertouch, and falls back to note velocity when the
-  recording has no breath. You can also force a specific CC, aftertouch or velocity.
-- **Min / Max:** the output at no breath and at full breath. For the bell, try a Max of 1.15 for subtle or 1.5 for cartoony.
-- **Attack / Release:** how fast it reacts when you blow harder or let go. Longer values are smoother.
-- **Threshold:** breath below this fraction is ignored, which removes noise between notes.
-- **Curve:** below 1 it reacts to soft breath, above 1 only strong breath moves it.
-- **Normalize to Peak:** your strongest breath in the take counts as "full".
-- **Chest and Sway data path:** the preset guesses a bone. If your rig names bones differently,
-  right-click the bone's rotation field > Copy Data Path and paste it here.
-
-## 7. Bake and render
-
-1. **2. MIDI & Audio**: choose the .mid file, click **Fit Scene Range**, then choose the WAV and click **Add Audio**.
-2. **6. Bake > Bake MIDI to Animation.** The status bar says how many notes were fingered and which
-   breath source each effect used.
-3. Press play. Changed something? Bake again. It replaces only the `MIDI: …` tracks.
-
-If you keep an idle or body animation as the rig's active action, **Keep Active Actions as Base** moves it
-into a `Base: …` track underneath, so it keeps playing under the fingers and breath.
+Export needs Blender's UI (it draws with the GPU), not `blender -b`.
 
 ## Troubleshooting
 
-- **The fingers swing stiffly:** the poses only key the base joint of each finger. Re-save them with
-  all 3 joints selected (section 5).
-- **The sax drifts away from the hands:** lock it (section 2b). Parenting it to the Armature object
-  or to one hand doesn't keep both hands on it.
-- **The fingers don't move:** check that **Bake Fingering** is ticked and that Analyze doesn't list missing poses.
-- **The fingers move but look one note off:** adjust **Transpose**.
-- **The cheeks don't move:** the shape key must be named exactly as in the effect (default `CheekPuff`),
-  and the effect's target must be the mesh that has it.
-- **The bell scales from the wrong point:** move its origin to the joint (step 4).
-- **It says "note velocity (no breath data found)":** the export lost the CC lane, or the Aerophone sends
-  breath on another controller. Check Reaper's MIDI editor, or set Source to that CC.
+- **A finger doesn't move:** check its bones in panel 2 and that its markers exist, then run Autoassign. Bake lists missing poses.
+- **The fingertip misses the key:** move the marker and run Autoassign again (unlock the pose if you edited it).
+- **Wrong notes fingered:** adjust **Transpose**.
+- **Cheeks don't move:** the effect's object must have the shape key. Check the status line for the blow source.
+- **"CC2 not in file":** the export lost the CC lane, or the Aerophone sends breath on another controller (see Analyze's Controllers line).

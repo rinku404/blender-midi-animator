@@ -1,0 +1,17 @@
+schema_version = "1.0.0"
+
+id = "midi_animator"
+version = "1.0.0"
+name = "MIDI Animator"
+tagline = "Animate a wind player from MIDI: fingering, breath and note HUD"
+maintainer = "Paulo"
+type = "add-on"
+
+tags = ["Animation", "Rigging"]
+
+blender_version_min = "5.0.0"
+
+license = ["SPDX:GPL-3.0-or-later"]
+
+[permissions]
+files = "Read MIDI and audio files, write HUD image sequences"
