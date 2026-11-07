@@ -1,5 +1,6 @@
 """Finger bone-chain detection from bone names (Rigify, Mixamo, VRoid, Unreal, generic)."""
 
+import math
 import re
 
 FINGER_WORDS = {
@@ -130,3 +131,79 @@ def guess_hold_bones(bones):
         c = sorted((_hand_rank(n), len(n), n) for n in names if _side(n) == side and _hand_rank(n) is not None)
         hands[side] = c[0][2] if c else ""
     return strap, hands["L"], hands["R"]
+
+
+# -- Finger bend axis (Autoassign IK limits) -----------------------------------
+
+BEND_AXES = ("X", "-X", "Z", "-Z")
+MAX_BEND_DEG = 120.0       # how far one joint may curl during Autoassign
+ROOT_SPREAD_DEG = 25.0     # side-to-side freedom of a finger's root (knuckle) joint
+_MIN_CURL = 0.02           # sin of the summed rest curl below which a chain counts as straight
+
+
+def _dot(a, b):
+    return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]
+
+
+def _cross(a, b):
+    return (a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0])
+
+
+def joint_curl(parent_y, child_x, child_y, child_z):
+    """Rest curl of one joint, as (x, z): the axis that turns the parent's direction into the
+    child's, in the child's bone frame (x along its local X, z along its local Z). Its length is
+    the sine of the bend angle; a positive rotation around that axis bends the joint further.
+
+    parent_y: the parent bone's direction; child_x / child_y / child_z: the child's local axes
+    (unit vectors in armature space, at rest)."""
+    axis = _cross(parent_y, child_y)
+    return _dot(axis, child_x), _dot(axis, child_z)
+
+
+def detect_bend_axis(joints):
+    """joints: [(x, z)] rest curls from joint_curl(), for the joints *inside* finger chains
+    (not the knuckle, whose parent is the palm). Returns the bend axis in BEND_AXES, or None
+    if the fingers are straight at rest (then nothing can be told from the rest pose)."""
+    sx = sum(j[0] for j in joints)
+    sz = sum(j[1] for j in joints)
+    if max(abs(sx), abs(sz)) < _MIN_CURL:
+        return None
+    if abs(sx) >= abs(sz):
+        return "X" if sx > 0 else "-X"
+    return "Z" if sz > 0 else "-Z"
+
+
+def ik_joint_settings(bend_axis, keep_twist=True, root=False):
+    """Pose-bone IK settings for one finger joint during Autoassign, as {attribute: value}.
+
+    Middle and end joints are hinges: they turn only around the bend axis, and only in the
+    curling direction (0..MAX_BEND_DEG from rest). The root joint (knuckle) may also spread
+    sideways by ROOT_SPREAD_DEG. Keep Twist locks the twist around the bone (Y)."""
+    if bend_axis not in BEND_AXES:
+        raise ValueError(f"bend axis must be one of {BEND_AXES}, not {bend_axis!r}")
+    bend = bend_axis[-1].lower()
+    side = "z" if bend == "x" else "x"
+    lo, hi = 0.0, math.radians(MAX_BEND_DEG)
+    if bend_axis.startswith("-"):
+        lo, hi = -hi, 0.0
+    out = {}
+    for a in "xyz":
+        out[f"lock_ik_{a}"] = False
+        out[f"use_ik_limit_{a}"] = False
+    out[f"use_ik_limit_{bend}"] = True
+    out[f"ik_min_{bend}"], out[f"ik_max_{bend}"] = lo, hi
+    if root:
+        spread = math.radians(ROOT_SPREAD_DEG)
+        out[f"use_ik_limit_{side}"] = True
+        out[f"ik_min_{side}"], out[f"ik_max_{side}"] = -spread, spread
+    else:
+        out[f"lock_ik_{side}"] = True
+    if keep_twist:
+        out["lock_ik_y"] = True
+    return out
+
+
+def locked_axes(bend_axis, keep_twist=True, root=False):
+    """Axes ('x', 'y', 'z') a joint must not turn around after Autoassign."""
+    s = ik_joint_settings(bend_axis, keep_twist, root)
+    return [a for a in "xyz" if s[f"lock_ik_{a}"]]

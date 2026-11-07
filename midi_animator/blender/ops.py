@@ -160,10 +160,38 @@ class MIDIANIM_OT_detect_fingers(bpy.types.Operator):
     def execute(self, context):
         s = state.settings(context)
         missing = rig.detect_fingers(s)
-        if missing:
-            self.report({"WARNING"}, "Not found, pick bones by hand: " + ", ".join(missing))
+        axis, odd = rig.detect_bend_axis(s)
+        if axis is None:
+            bend = f"fingers straight at rest, Bend Axis kept at {s.bend_axis}"
         else:
-            self.report({"INFO"}, f"Found all {len(s.fingers)} fingers")
+            bend = f"Bend Axis {axis}" + (f" (these curl another way: {', '.join(odd)})" if odd else "")
+        if missing:
+            self.report({"WARNING"}, "Not found, pick bones by hand: " + ", ".join(missing) + "; " + bend)
+        else:
+            self.report({"INFO"}, f"Found all {len(s.fingers)} fingers; {bend}")
+        return {"FINISHED"}
+
+
+class MIDIANIM_OT_detect_bend_axis(bpy.types.Operator):
+    """Pick the Bend Axis from the way the rig's fingers curl at rest"""
+    bl_idname = "midianim.detect_bend_axis"
+    bl_label = "Detect"
+    bl_options = {"REGISTER", "UNDO"}
+
+    @classmethod
+    def poll(cls, context):
+        return state.settings(context).rig is not None
+
+    def execute(self, context):
+        s = state.settings(context)
+        axis, odd = rig.detect_bend_axis(s)
+        if axis is None:
+            self.report({"WARNING"}, "The fingers are straight at rest, so the rig can't tell; "
+                                     f"kept {s.bend_axis}. Pick the axis by hand")
+        elif odd:
+            self.report({"WARNING"}, f"Bend Axis {axis}; these fingers curl another way: " + ", ".join(odd))
+        else:
+            self.report({"INFO"}, f"Bend Axis {axis}")
         return {"FINISHED"}
 
 
@@ -293,10 +321,11 @@ class MIDIANIM_OT_autoassign(bpy.types.Operator):
         s = state.settings(context)
         rig.sync_finger_slots(s)
         only = s.fingers[s.finger_index].slot if self.only_selected and s.fingers else None
-        created, skipped, problems = autoassign.autoassign(context, s, only)
+        created, skipped, problems, rest_msg = autoassign.autoassign(context, s, only)
         msg = f"{created} poses created"
         if skipped:
             msg += f", {skipped} locked kept"
+        msg += f"; {rest_msg}"
         if problems:
             msg += " | " + "; ".join(problems)
         self.report({"WARNING"} if problems else {"INFO"}, msg)
@@ -710,6 +739,7 @@ classes = (
     MIDIANIM_OT_set_scene_range,
     MIDIANIM_OT_add_audio,
     MIDIANIM_OT_detect_fingers,
+    MIDIANIM_OT_detect_bend_axis,
     MIDIANIM_OT_guess_hold_bones,
     MIDIANIM_OT_lock_hands,
     MIDIANIM_OT_unlock_hands,

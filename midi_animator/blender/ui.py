@@ -142,7 +142,13 @@ class MIDIANIM_PT_fingers(MIDIANIM_PT_base, bpy.types.Panel):
         r.scale_y = 1.2
         r.operator("midianim.autoassign", icon="CON_KINEMATIC").only_selected = False
         r.operator("midianim.autoassign", text="", icon="RESTRICT_SELECT_OFF").only_selected = True
-        box.prop(s, "force_autoassign")
+        r = box.row(align=True)
+        r.prop(s, "bend_axis")
+        r.operator("midianim.detect_bend_axis", icon="VIEWZOOM")
+        r = box.row(align=True)
+        r.prop(s, "keep_twist")
+        r.prop(s, "force_autoassign")
+        box.label(text="Also builds F.Rest: fingers up over their home keys")
         for act in autoassign.generated_poses(f.slot):
             r = box.row(align=True)
             r.label(text=act.name)

@@ -59,6 +59,34 @@ def finger_bones(s):
     return out
 
 
+def _rest_curls(arm, chain):
+    """Rest curl (x, z) of each joint inside a finger chain (see core.rigs.joint_curl)."""
+    out = []
+    for parent, child in zip(chain, chain[1:]):
+        pm = arm.data.bones[parent].matrix_local.to_3x3()
+        cx, cy, cz = (tuple(arm.data.bones[child].matrix_local.to_3x3().col[i].normalized()) for i in range(3))
+        out.append(rigs.joint_curl(tuple(pm.col[1].normalized()), cx, cy, cz))
+    return out
+
+
+def detect_bend_axis(s):
+    """Set s.bend_axis from the fingers' rest curl. Returns (axis or None, [finger labels that
+    curl around another axis]). None = the fingers are straight at rest; s.bend_axis is kept."""
+    bones = finger_bones(s)
+    labels = {f.slot: f.label for f in s.fingers}
+    joints, per_finger = [], {}
+    for slot, chain in bones.items():
+        curls = _rest_curls(s.rig, chain)
+        joints += curls
+        per_finger[slot] = rigs.detect_bend_axis(curls)
+    axis = rigs.detect_bend_axis(joints)
+    if axis is None:
+        return None, []
+    s.bend_axis = axis
+    odd = [labels.get(sl, sl) for sl, a in per_finger.items() if a is not None and a != axis]
+    return axis, odd
+
+
 # -- key markers -------------------------------------------------------------
 
 def marker_name(slot, key):

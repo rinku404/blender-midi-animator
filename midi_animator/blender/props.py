@@ -232,6 +232,21 @@ class MIDIANIM_Settings(bpy.types.PropertyGroup):
     marker_size: FloatProperty(name="Marker Size", default=0.006, min=0.0001, unit="LENGTH")
     force_autoassign: BoolProperty(name="Overwrite Locked", default=False,
                                    description="Also regenerate poses you edited or locked")
+    bend_axis: EnumProperty(
+        name="Bend Axis",
+        items=[
+            ("X", "X", "Fingers curl with a positive rotation around their local X (Rigify)"),
+            ("-X", "-X", "Fingers curl with a negative rotation around their local X"),
+            ("Z", "Z", "Fingers curl with a positive rotation around their local Z"),
+            ("-Z", "-Z", "Fingers curl with a negative rotation around their local Z"),
+        ],
+        default="X",
+        description="The local axis (and direction) a finger joint curls around. Autoassign only "
+                    "bends joints this way, so fingers never twist sideways or bend backwards. "
+                    "Detect reads it from the rig's rest curl")
+    keep_twist: BoolProperty(name="Keep Twist", default=True,
+                             description="Autoassign never twists finger bones around their own "
+                                         "length (locks IK on Y)")
 
     notes: CollectionProperty(type=MIDIANIM_NoteMapping)
     note_index: IntProperty(default=0)
