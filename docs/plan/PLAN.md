@@ -15,7 +15,7 @@ Every agent reads **[AGENT_BRIEF.md](AGENT_BRIEF.md)** first.
 |---|---|---|---|---|
 | 0 | Baseline: core + Blender layer | — | — | ✅ done ([report](reports/step-00-baseline.md)) |
 | 1 | Reconcile `main` into `v1-rewrite` | 0 | no | ✅ done ([report](reports/step-01-reconcile.md)) |
-| 2 | Port "Hold the Instrument" to v1 | 1 | no | ⬜ todo |
+| 2 | Port "Hold the Instrument" to v1 | 1 | no | ✅ done ([report](reports/step-02-hold.md)) |
 | 3 | Verify the HUD in Blender's UI | 1 | run Blender with a window | ⬜ todo |
 | 4 | Finger quality: bend direction and an auto Rest pose | 2 | no | ⬜ todo |
 | 5 | Chart completion: F#6, and a check against the old chart | 1 | no | ⬜ todo |
@@ -25,13 +25,14 @@ Every agent reads **[AGENT_BRIEF.md](AGENT_BRIEF.md)** first.
 | 9 | Release v1.0.0 | 7, 8 | approve the merge | ⬜ todo |
 
 Statuses: ⬜ todo · 🔄 in progress · ✅ done · ⚠️ done with follow-ups · ⛔ blocked.
-Steps 3 and 5 can run in parallel with 2 (each on its own branch).
+Steps 3, 4 and 5 can now run in parallel (each on its own branch); 3 and 4 are on the critical path to the trial.
 
 ## Revision log
 
 | Date | Change |
 |---|---|
 | 2026-11-07 | Plan created. Step 0 recorded as done. PR #2 (hold + per-finger chart on the old file) found on `main`: added steps 1–2 to reconcile and port it. |
+| 2026-11-07 | Step 2 done (PR #5). Breathing conflict solved with option (b), a scale-free Child Of (ADR 0011), because (a) can't work. Added: step 4 task to remove the 7.9 mm hand drift under chest breathing; step 3 task to look at the Hold box in the UI; step 6 checks for hand accuracy and Rigify `hand_fk`. |
 | 2026-11-07 | Step 1 done (PR #4). It was merged into `main` rather than `v1-rewrite`, so `main` now holds v1 and is the working branch; `v1-rewrite` and PR #3 are retired. Step 9 no longer merges PR #3. Step 5 gains palm-key guide text (from step 1's follow-ups). Step 2 gains a note: the user's `/init` edits to `CLAUDE.md` are in `git stash` on their machine. |
 
 ---
@@ -132,6 +133,8 @@ Copy Rotation on each hand. Unlock removes the constraints and targets.
      Render one frame to `tests/out/comp.png`.
    - Viewport preview: enable it, redraw a 3D view, and check there are no Python errors in the draw handler.
 2. Fix whatever breaks in `blender/hud_draw.py`.
+   While Blender's window is open, also screenshot panel 2's **Hold** box (added in step 2, never seen in the UI)
+   and report any layout problems; fix only obvious ones.
 3. Attach two exported frames and the composite frame to the report (paths in the repo, not committed if large).
 
 **Acceptance criteria**
@@ -154,11 +157,16 @@ Copy Rotation on each hand. Unlock removes the constraints and targets.
    (quaternion → Euler in bone space, ±1°), and the tip distance is still < 4 mm.
 3. Auto Rest: Autoassign also builds `F.Rest`: every finger at Up over its home key, plus the current hand
    bones. If `s.rest_pose` is empty, it uses it. A manual Rest pose still wins.
-4. Update the guide and the ADR index (new ADR only if the behaviour of 0004 changes; a note in 0004 is enough otherwise).
+4. **Hand drift under breathing** (from step 2): with the hold locked and the Chest effect at its default, the hands sit up
+   to 7.9 mm off their `MIDI Hold` targets at peak breath, because the arm IK solves under a scaled chest. Remove or reduce it
+   (for example, arm bones don't inherit the chest's scale, or the Chest effect scales a child bone the arms don't descend from).
+   Test: max hand-to-target gap while breathing < 1 mm, and the sax scale stays 1.0.
+5. Update the guide and the ADR index (new ADR only if the behaviour of 0004 or 0011 changes; a note in the ADR is enough otherwise).
 
 **Acceptance criteria**
 - [ ] The new tests pass, and existing tests still pass.
 - [ ] On the test rig, no joint bends against the bend axis (state the measured max in the report).
+- [ ] Hand-to-target gap while breathing < 1 mm (measured value in the report).
 
 ---
 
@@ -195,7 +203,8 @@ and timings. The agent may also inspect the user's .blend from a script (bone na
 
 **Must cover:** Detect Fingers on the real rig, Hold lock, placing all markers (time it), Autoassign
 (look at every finger), Fill From Chart, blow effects with the real take's CC2, Bake, playback with audio,
-HUD preview, and export of 10 s.
+HUD preview, and export of 10 s. Also: the Hold box's bone guess on the real rig (Rigify gives
+`hand_fk`; check the lock doesn't fight Rigify's IK/FK switch), and hand accuracy against the sax while breathing.
 
 **Report:** an issue table with columns #, area, what happened, expected, severity (blocker / bad / polish), and
 suggested fix. Severity ratings are needed because the planner turns this table into step 7.
