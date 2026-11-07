@@ -3,8 +3,8 @@ step: 4
 title: "Finger quality: bend direction and an auto Rest pose"
 status: done
 branch: plan/step-04-finger-quality
-pr: see PR description (into main)
-commits: see PR
+pr: "#6"
+commits: 74a21cb..(this commit)
 date: 2026-11-07
 blender: 5.2.3 LTS, "C:\Program Files\Blender Foundation\Blender 5.2\blender.exe"
 tests_core: 35 passed
