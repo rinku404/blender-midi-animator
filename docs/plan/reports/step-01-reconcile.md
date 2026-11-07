@@ -3,7 +3,7 @@ step: 1
 title: "Reconcile `main` into `v1-rewrite`"
 status: done
 branch: plan/step-01-reconcile
-pr: see PR description (into v1-rewrite)
+pr: https://github.com/rinku404/blender-midi-animator/pull/4
 commits: ccfce41 (merge) + the report commit
 date: 2026-11-07
 blender: 5.2.3 LTS, "C:\Program Files\Blender Foundation\Blender 5.2\blender.exe"
