@@ -6,6 +6,7 @@ Builds a small rig with Rigify-style finger names, an instrument with key marker
 face with a CheekPuff shape key; then Detect Fingers -> Autoassign -> Fill From Chart ->
 blow effects -> Bake, and checks the result.
 """
+import math
 import os
 import sys
 import traceback
@@ -41,8 +42,14 @@ def build_scene():
     chest = eb.new("chest")
     chest.head, chest.tail, chest.parent = (0, 0, 1), (0, 0, 1.4), spine
     for side, x in (("L", 0.3), ("R", -0.3)):
+        upper = eb.new(f"upper_arm.{side}")
+        upper.head, upper.tail, upper.parent = (x * 0.6, 0.0, 1.4), (x, -0.25, 1.3), chest
+        fore = eb.new(f"forearm.{side}")
+        fore.head, fore.tail, fore.parent = (x, -0.25, 1.3), (x, 0, 1.3), upper
+        fore.use_connect = True
         hand = eb.new(f"hand.{side}")
-        hand.head, hand.tail, hand.parent = (x, 0, 1.3), (x, 0.1, 1.3), chest
+        hand.head, hand.tail, hand.parent = (x, 0, 1.3), (x, 0.1, 1.3), fore
+        hand.use_connect = True
         for name, s, z in FINGERS:
             if s != side:
                 continue
@@ -92,6 +99,92 @@ def place_markers(s, arm):
 def tip_world(arm, bone):
     bpy.context.view_layer.update()
     return arm.matrix_world @ arm.pose.bones[bone].tail
+
+
+def hold_checks(scene, s, arm, sax, markers):
+    """Hold the Instrument: lock, follow, idempotent, unlock, and no breathing scale on the sax."""
+    pb = arm.pose.bones
+    bpy.context.view_layer.update()
+    assert bpy.ops.midianim.guess_hold_bones() == {"FINISHED"}
+    assert (s.hold_strap_bone, s.hold_hand_l, s.hold_hand_r) == ("chest", "hand.L", "hand.R"),         (s.hold_strap_bone, s.hold_hand_l, s.hold_hand_r)
+    scene.frame_set(1)
+    bpy.context.view_layer.update()
+
+    def world(bone):
+        return arm.matrix_world @ pb[bone].head
+
+    hand_before, elbow_before = world("hand.L").copy(), world("forearm.L").copy()
+    sax_before = sax.matrix_world.translation.copy()
+    assert bpy.ops.midianim.lock_hands() == {"FINISHED"}
+    bpy.context.view_layer.update()
+    con = sax.constraints["MIDI Hold Strap"]
+    assert con.subtarget == "chest" and sax.parent is None
+    assert (sax.matrix_world.translation - sax_before).length < 1e-4, "sax moved on lock"
+    assert (world("hand.L") - hand_before).length < 1e-3, "hand moved on lock"
+    assert (world("forearm.L") - elbow_before).length < 1e-2, "elbow drifted on lock"
+    assert markers[("L1", "B")].parent == sax
+
+    # Bend the chest: the sax follows, and the hands stay on their targets
+    pb["chest"].rotation_mode = "XYZ"
+    pb["chest"].rotation_euler.x = math.radians(20)
+    bpy.context.view_layer.update()
+    tgt = bpy.data.objects["MIDI Hold L"]
+    assert (sax.matrix_world.translation - sax_before).length > 0.01, "sax did not follow the chest"
+    assert (world("hand.L") - tgt.matrix_world.translation).length < 1e-3
+    pb["chest"].rotation_euler.x = 0
+    bpy.context.view_layer.update()
+
+    # Autoassign still puts the fingertip on its key with the hold locked
+    s.force_autoassign = True
+    assert bpy.ops.midianim.autoassign() == {"FINISHED"}
+    s.force_autoassign = False
+    bpy.ops.midianim.apply_pose(action="F.L1.B.Down")
+    d = (tip_world(arm, "f_index.03.L") - markers[("L1", "B")].matrix_world.translation).length
+    print(f"tip distance with hold locked: {d:.4f}")
+    assert d < 0.004, d
+    bpy.ops.midianim.apply_pose(action="F.L1.B.Up")
+
+
+
+def hold_breath_checks(scene, s, arm, sax):
+    """After a bake with the Chest effect and the hold locked."""
+    pb = arm.pose.bones
+    # Breathing never scales the instrument (a bone-parented child would)
+    probe = bpy.data.objects.new("probe", None)
+    scene.collection.objects.link(probe)
+    probe.parent, probe.parent_type, probe.parent_bone = arm, "BONE", "chest"
+    worst, probe_scale, gap = 0.0, 1.0, 0.0
+    tgt = bpy.data.objects["MIDI Hold L"]
+    for f in range(1, int(1 + 6 * 24), 3):
+        scene.frame_set(f)
+        gap = max(gap, (arm.matrix_world @ pb["hand.L"].head - tgt.matrix_world.translation).length)
+        worst = max(worst, max(abs(v - 1.0) for v in sax.matrix_world.to_scale()))
+        probe_scale = max(probe_scale, probe.matrix_world.to_scale().x)
+    chest_scale = max(pb["chest"].scale.x, 1.0)
+    print(f"max sax scale error {worst:.2e}; chest scale up to {chest_scale:.3f}; bone-parented probe {probe_scale:.3f}")
+    assert chest_scale > 1.005, "Chest effect did not scale the bone, so this test proves nothing"
+    assert probe_scale > 1.005, "bone parenting should scale (the reason for Child Of)"
+    assert worst < 1e-4, worst
+    print(f"max hand-to-target gap while breathing: {gap * 1000:.1f} mm")
+    assert gap < 0.02, gap          # Blender's IK is not exact under a scaled parent
+    bpy.data.objects.remove(probe)
+
+    # Idempotent re-lock; unlock cleans up
+    assert bpy.ops.midianim.lock_hands() == {"FINISHED"}
+    n_con = sum(1 for b in pb for c in b.constraints if c.name.startswith("MIDI Hold"))
+    assert n_con == 4, n_con
+    assert sum(1 for c in sax.constraints if c.name == "MIDI Hold Strap") == 1
+    assert bpy.ops.midianim.unlock_hands() == {"FINISHED"}
+    assert not any(c.name.startswith("MIDI Hold") for b in pb for c in b.constraints)
+    assert "MIDI Hold L" not in bpy.data.objects and "MIDI Hold R" not in bpy.data.objects
+    # Missing bones give a clean error, not a traceback
+    s.hold_hand_r = "nope"
+    try:
+        bpy.ops.midianim.lock_hands()
+        raise AssertionError("lock with a missing bone should fail")
+    except RuntimeError as e:
+        assert "not found" in str(e), e
+    s.hold_hand_r = "hand.R"
 
 
 def main():
@@ -145,6 +238,8 @@ def main():
     g4 = state.find_note(s, parse_note_name("G4"))
     assert state.parse_combination(g4.combination) == {"L1": "B", "L2": "A", "L3": "G"}
 
+    hold_checks(scene, s, arm, sax, markers)
+
     # Blow effects
     bpy.context.view_layer.objects.active = face
     assert bpy.ops.midianim.effect_add(preset="CHEEKS") == {"FINISHED"}
@@ -178,6 +273,8 @@ def main():
     scene.frame_set(int(1 + 4.6 * fps))       # late in the first phrase: lungs emptier
     assert arm.pose.bones["chest"].scale.x < sy_mid
     assert abs(arm.pose.bones["hand.L"].location.y - 0.05) < 1e-4, "base idle lost"
+
+    hold_breath_checks(scene, s, arm, sax)
 
     # Re-bake replaces only MIDI tracks
     assert bpy.ops.midianim.bake() == {"FINISHED"}

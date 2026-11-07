@@ -8,7 +8,7 @@ from bpy.props import BoolProperty, EnumProperty, IntProperty, StringProperty
 from ..core import hud as core_hud
 from ..core import midi as core_midi
 from ..core.notes import note_name
-from . import actions, autoassign, bake, hud_draw, rig, state
+from . import actions, autoassign, bake, hold, hud_draw, rig, state
 
 
 def _err(op, e):
@@ -164,6 +164,51 @@ class MIDIANIM_OT_detect_fingers(bpy.types.Operator):
             self.report({"WARNING"}, "Not found, pick bones by hand: " + ", ".join(missing))
         else:
             self.report({"INFO"}, f"Found all {len(s.fingers)} fingers")
+        return {"FINISHED"}
+
+
+class MIDIANIM_OT_guess_hold_bones(bpy.types.Operator):
+    """Fill the strap and hand bones from the rig's bone names"""
+    bl_idname = "midianim.guess_hold_bones"
+    bl_label = "Guess Bones"
+    bl_options = {"REGISTER", "UNDO"}
+
+    @classmethod
+    def poll(cls, context):
+        return state.settings(context).rig is not None
+
+    def execute(self, context):
+        missing = hold.guess_bones(state.settings(context))
+        if missing:
+            self.report({"WARNING"}, "Not found, pick by hand: " + ", ".join(missing))
+        return {"FINISHED"}
+
+
+class MIDIANIM_OT_lock_hands(bpy.types.Operator):
+    """Hang the instrument from the strap bone and lock both hands onto it with IK, keeping the
+    current pose. Pose the hold first (instrument at the lips, hands on the keys), then click this"""
+    bl_idname = "midianim.lock_hands"
+    bl_label = "Lock"
+    bl_options = {"REGISTER", "UNDO"}
+
+    def execute(self, context):
+        s = state.settings(context)
+        problem = hold.check(s)
+        if problem:
+            return _err(self, problem)
+        self.report({"INFO"}, hold.lock_hands(context, s))
+        return {"FINISHED"}
+
+
+class MIDIANIM_OT_unlock_hands(bpy.types.Operator):
+    """Remove the hand IK, rotation constraints and targets (the instrument stays on the strap)"""
+    bl_idname = "midianim.unlock_hands"
+    bl_label = "Unlock"
+    bl_options = {"REGISTER", "UNDO"}
+
+    def execute(self, context):
+        n = hold.unlock_hands(context, state.settings(context))
+        self.report({"INFO"}, f"Removed {n} hold constraints")
         return {"FINISHED"}
 
 
@@ -665,6 +710,9 @@ classes = (
     MIDIANIM_OT_set_scene_range,
     MIDIANIM_OT_add_audio,
     MIDIANIM_OT_detect_fingers,
+    MIDIANIM_OT_guess_hold_bones,
+    MIDIANIM_OT_lock_hands,
+    MIDIANIM_OT_unlock_hands,
     MIDIANIM_OT_finger_bone_add,
     MIDIANIM_OT_finger_bone_remove,
     MIDIANIM_OT_add_marker,

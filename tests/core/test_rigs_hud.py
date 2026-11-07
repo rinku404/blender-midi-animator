@@ -63,3 +63,34 @@ def test_hud_upcoming_only_before_start():
     roles = [p.role for p in prims if isinstance(p, H.Rect)]
     assert "upcoming" in roles and "active" not in roles
     assert not [p for p in prims if isinstance(p, H.Text) and p.role == "now"]
+
+
+def _names(*n):
+    return [(x, None) for x in n]
+
+
+def test_guess_hold_bones_rigify():
+    bones = _names("spine", "spine.001", "spine.002", "spine.003", "spine.004", "DEF-hand.L", "hand_fk.L",
+                   "hand_ik.L", "hand_fk.R", "hand_ik.R", "hand_tweak.L", "f_index.01.L", "ORG-spine.003")
+    assert R.guess_hold_bones(bones) == ("spine.003", "hand_fk.L", "hand_fk.R")
+
+
+def test_guess_hold_bones_mixamo():
+    bones = _names("mixamorig:Hips", "mixamorig:Spine", "mixamorig:Spine1", "mixamorig:Spine2",
+                   "mixamorig:LeftHand", "mixamorig:RightHand", "mixamorig:LeftHandIndex1",
+                   "mixamorig:RightHandThumb2")
+    assert R.guess_hold_bones(bones) == ("mixamorig:Spine2", "mixamorig:LeftHand", "mixamorig:RightHand")
+
+
+def test_guess_hold_bones_vroid_and_biped():
+    vroid = _names("J_Bip_C_Spine", "J_Bip_C_Chest", "J_Bip_C_UpperChest", "J_Bip_L_Hand", "J_Bip_R_Hand",
+                   "J_Bip_L_Index1")
+    assert R.guess_hold_bones(vroid) == ("J_Bip_C_UpperChest", "J_Bip_L_Hand", "J_Bip_R_Hand")
+    biped = _names("Bip01_Spine", "Bip01_Spine1", "Bip01_Spine2", "Bip01_L_Hand", "Bip01_R_Hand", "Bip01_L_Finger1")
+    assert R.guess_hold_bones(biped) == ("Bip01_Spine2", "Bip01_L_Hand", "Bip01_R_Hand")
+
+
+def test_guess_hold_bones_simple_and_empty():
+    simple = _names("spine", "chest", "hand.L", "hand.R", "forearm.L", "thumb.L")
+    assert R.guess_hold_bones(simple) == ("chest", "hand.L", "hand.R")
+    assert R.guess_hold_bones(_names("root", "arm")) == ("", "", "")
