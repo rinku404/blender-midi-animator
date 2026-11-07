@@ -26,14 +26,15 @@ Guitar-Hero-style note HUD for video overlay.
 python -m pytest tests/core                                        # core, anywhere
 blender -b --factory-startup --python tests/test_in_blender.py      # end-to-end in Blender 5.2
 python tests/hud_preview.py examples/aerophone_sample.mid out/ 0.3 4.9   # HUD frames via Pillow
+blender --command extension validate midi_animator                   # manifest (the e2e test doesn't check it)
 ```
 New logic goes in `core/` with a pytest test whenever it doesn't need Blender.
 
 ## Status (2026-11-06)
 - `core/`: done, 28 tests passing.
-- `blender/`: written against the 5.x API but **never run in Blender yet**. First job:
-  run `tests/test_in_blender.py` in Blender 5.2 and fix whatever breaks. Least certain:
-  ProRes 4444 encode and the composite scene in `hud_draw.py`. HUD export needs the UI (GPU), not `-b`.
+- `blender/`: `tests/test_in_blender.py` passes in Blender 5.2.3 (2026-11-07), and the built
+  extension installs and enables. Still never run: HUD preview/export in `hud_draw.py` (ProRes 4444
+  encode, composite scene). Those need the UI (GPU), not `-b`.
 - The old single-file add-on was removed in this branch (it's still in git history on `main`).
 
 ## Conventions
