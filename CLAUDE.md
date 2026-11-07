@@ -39,7 +39,7 @@ New logic goes in `core/` with a pytest test whenever it doesn't need Blender.
 - `blender/`: `tests/test_in_blender.py` passes in Blender 5.2.3 (2026-11-07), and the built
   extension installs and enables. Still never run: HUD preview/export in `hud_draw.py` (ProRes 4444
   encode, composite scene). Those need the UI (GPU), not `-b`.
-- The old single-file add-on was removed in this branch (it's still in git history on `main`).
+- `main` holds v1 since PR #4 (2026-11-07); the old single-file add-on is only in git history. `v1-rewrite` is retired.
 
 ## Conventions
 - Generated finger poses: `F.<slot>.<key>.Down|Up` (pose assets). Key markers: Empties named

@@ -6,12 +6,15 @@ updates this file: statuses, the revision log, and new or changed steps.
 
 Every agent reads **[AGENT_BRIEF.md](AGENT_BRIEF.md)** first.
 
+**Branches:** `main` is the working branch (v1 landed there with step 1's PR #4). Steps branch from
+`origin/main` and open their PR into `main`. `v1-rewrite` is retired; don't build on it.
+
 ## Status board
 
 | Step | Title | Depends on | Needs the user? | Status |
 |---|---|---|---|---|
 | 0 | Baseline: core + Blender layer | — | — | ✅ done ([report](reports/step-00-baseline.md)) |
-| 1 | Reconcile `main` into `v1-rewrite` | 0 | no | ⬜ todo |
+| 1 | Reconcile `main` into `v1-rewrite` | 0 | no | ✅ done ([report](reports/step-01-reconcile.md)) |
 | 2 | Port "Hold the Instrument" to v1 | 1 | no | ⬜ todo |
 | 3 | Verify the HUD in Blender's UI | 1 | run Blender with a window | ⬜ todo |
 | 4 | Finger quality: bend direction and an auto Rest pose | 2 | no | ⬜ todo |
@@ -29,6 +32,7 @@ Steps 3 and 5 can run in parallel with 2 (each on its own branch).
 | Date | Change |
 |---|---|
 | 2026-11-07 | Plan created. Step 0 recorded as done. PR #2 (hold + per-finger chart on the old file) found on `main`: added steps 1–2 to reconcile and port it. |
+| 2026-11-07 | Step 1 done (PR #4). It was merged into `main` rather than `v1-rewrite`, so `main` now holds v1 and is the working branch; `v1-rewrite` and PR #3 are retired. Step 9 no longer merges PR #3. Step 5 gains palm-key guide text (from step 1's follow-ups). Step 2 gains a note: the user's `/init` edits to `CLAUDE.md` are in `git stash` on their machine. |
 
 ---
 
@@ -73,6 +77,9 @@ which `v1-rewrite` deletes, so PR #3 now conflicts.
 
 **Goal:** the instrument hangs from a strap/chest bone and both hands stay locked to it with IK,
 as in PR #2, rebuilt on v1's structure and without the breathing scaling the instrument.
+
+**Note:** the user's machine has uncommitted `CLAUDE.md` edits from `/init` in `git stash` (step 1 report).
+Leave the stash alone; the user decides whether to apply it.
 
 **Background:** PR #2's `MIDIANIM_OT_lock_hands` / `unlock_hands` (see `git show origin/main:midi_animator.py`,
 around line 1075) parents the instrument to a strap bone, keeping its world transform. It creates `MIDI Hold L/R` empties
@@ -165,7 +172,9 @@ difference from PR #2's chart is documented.
    (D, Eb, F) + side E + high F#, simplified to the marker model like the other palm keys.
 2. Using step 1's difference table, fix any real mistakes in `_sax_chart`, and document intentional
    differences (e.g. low C#: PR #2 uses LP, v1 uses R4:LowC + L4:LowC#) in a docstring.
-3. pytest: the full range 58–90 is mapped, every key used exists in its slot, and the octave key is present
+3. Guide: for D6–F#6, say exactly which palm/side markers each note uses and where to place them
+   (`PalmEb` = where the palm presses D+Eb together, `PalmF` = D+Eb+F, and the high F# key), from step 1's chart table.
+4. pytest: the full range 58–90 is mapped, every key used exists in its slot, and the octave key is present
    from 74 up.
 
 **Acceptance criteria**
@@ -228,8 +237,8 @@ The scope is set by the planner after step 6: each blocker or bad issue becomes 
 1. `blender --command extension validate` and `build`, then install the built zip in a clean profile and run the
    e2e test against the installed copy.
 2. `CHANGELOG.md`, README screenshots (panels and HUD), and the version stays 1.0.0 (bump if anything changed after a build was shared).
-3. Update CLAUDE.md status, mark the plan's steps done, and ask the user to merge PR #3 into `main`.
-4. After the merge: tag `v1.0.0` and create a GitHub release with the zip.
+3. Update CLAUDE.md status and mark the plan's steps done; the user approves the release PR into `main`.
+4. After the merge: tag `v1.0.0` on `main` and create a GitHub release with the zip.
 
 **Acceptance criteria**
 - [ ] The zip installs and enables in a clean Blender 5.2 profile, and e2e passes on it.

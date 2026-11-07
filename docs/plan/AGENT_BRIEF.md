@@ -11,11 +11,11 @@ and will read your report to decide what happens next. Your report matters as mu
 3. Check the state of the repo, and note anything surprising in your report.
    ```
    git fetch origin
-   git log --oneline -5 origin/v1-rewrite
+   git log --oneline -5 origin/main
    ```
 
 ## 2. Branch and scope
-- Branch from the latest `origin/v1-rewrite` (after v1 is merged: `origin/main`), named
+- Branch from the latest `origin/main` (`v1-rewrite` is retired), named
   `plan/step-NN-<slug>`, for example `plan/step-02-hold`.
 - Do **only** your step's tasks. If you find work outside it (a bug, a better idea), don't do it.
   Put it in the report under *Follow-ups*. Exception: a tiny fix that blocks your own tests; say so in the report.
@@ -43,7 +43,7 @@ anything fails: report it as `partial` instead.
 
 ## 5. Write the report
 Create `docs/plan/reports/step-NN-<slug>.md` from [REPORT_TEMPLATE.md](REPORT_TEMPLATE.md), commit it
-**in the same branch**, push, and open a PR into `v1-rewrite` titled `Step NN: <title>`, with the report's
+**in the same branch**, push, and open a PR into `main` titled `Step NN: <title>`, with the report's
 summary as the PR description. Be factual: every ticked acceptance criterion needs evidence (a command output,
 a number or a file). Don't round "almost" up to "done".
 
