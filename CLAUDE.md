@@ -4,6 +4,10 @@ A Blender 5.x extension that bakes a recorded MIDI wind performance (Roland Aero
 character animation (per-finger fingering, cheeks, lung-driven chest) and renders a
 Guitar-Hero-style note HUD for video overlay.
 
+## Working on a plan step?
+Read `docs/plan/AGENT_BRIEF.md` first and follow it: one step per branch, and a report in
+`docs/plan/reports/`. The plan and status board are in `docs/plan/PLAN.md`.
+
 ## Read first
 - `docs/SPEC.md`: the agreed v1 design.
 - `docs/decisions/`: one record per decision, with the reasons. Don't reverse a decision
