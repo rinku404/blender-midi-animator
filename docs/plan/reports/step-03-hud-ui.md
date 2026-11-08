@@ -3,7 +3,7 @@ step: 3
 title: "Verify the HUD in Blender's UI"
 status: done
 branch: plan/step-03-hud-ui
-pr: see the PR for this branch
+pr: "#7"
 commits: db00bd8..(this commit)
 date: 2026-11-07
 blender: 5.2.3 LTS, "C:\Program Files\Blender Foundation\Blender 5.2\blender.exe" (with a window for the HUD test)
