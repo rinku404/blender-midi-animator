@@ -17,21 +17,22 @@ Every agent reads **[AGENT_BRIEF.md](AGENT_BRIEF.md)** first.
 | 1 | Reconcile `main` into `v1-rewrite` | 0 | no | ✅ done ([report](reports/step-01-reconcile.md)) |
 | 2 | Port "Hold the Instrument" to v1 | 1 | no | ✅ done ([report](reports/step-02-hold.md)) |
 | 3 | Verify the HUD in Blender's UI | 1 | run Blender with a window | ⬜ todo |
-| 4 | Finger quality: bend direction and an auto Rest pose | 2 | no | ⬜ todo |
+| 4 | Finger quality: bend direction and an auto Rest pose | 2 | no | ✅ done ([report](reports/step-04-finger-quality.md)) |
 | 5 | Chart completion: F#6, and a check against the old chart | 1 | no | ⬜ todo |
-| 6 | Real-rig trial with the user's character and take | 2, 3, 4 | **yes** | ⬜ todo |
+| 6 | Real-rig trial with the user's character and take | 2, 3, 4, 5 | **yes** | ⬜ todo |
 | 7 | Fixes from the trial | 6 | maybe | ⬜ todo (scope set after 6) |
 | 8 | Robustness and performance on long takes | 6 | no | ⬜ todo |
 | 9 | Release v1.0.0 | 7, 8 | approve the merge | ⬜ todo |
 
 Statuses: ⬜ todo · 🔄 in progress · ✅ done · ⚠️ done with follow-ups · ⛔ blocked.
-Steps 3, 4 and 5 can now run in parallel (each on its own branch); 3 and 4 are on the critical path to the trial.
+Steps 3 and 5 can run in parallel (each on its own branch); both must be done before the trial (step 6).
 
 ## Revision log
 
 | Date | Change |
 |---|---|
 | 2026-11-07 | Plan created. Step 0 recorded as done. PR #2 (hold + per-finger chart on the old file) found on `main`: added steps 1–2 to reconcile and port it. |
+| 2026-11-07 | Step 4 done (PR #6): bend-only IK limits (0.000° against the axis), auto `F.Rest`, hand drift 7.9 → 0.000 mm. Step 6 now also depends on step 5 (a real take may reach F#6) and gains checks from step 4's report: tip-miss messages and the knuckle-extension constant, thumb bend axis, Rigify `upper_arm_fk` inherit scale. Step 7 gains a polish candidate: spread curl across joints. |
 | 2026-11-07 | Step 2 done (PR #5). Breathing conflict solved with option (b), a scale-free Child Of (ADR 0011), because (a) can't work. Added: step 4 task to remove the 7.9 mm hand drift under chest breathing; step 3 task to look at the Hold box in the UI; step 6 checks for hand accuracy and Rigify `hand_fk`. |
 | 2026-11-07 | Step 1 done (PR #4). It was merged into `main` rather than `v1-rewrite`, so `main` now holds v1 and is the working branch; `v1-rewrite` and PR #3 are retired. Step 9 no longer merges PR #3. Step 5 gains palm-key guide text (from step 1's follow-ups). Step 2 gains a note: the user's `/init` edits to `CLAUDE.md` are in `git stash` on their machine. |
 
@@ -204,7 +205,12 @@ and timings. The agent may also inspect the user's .blend from a script (bone na
 **Must cover:** Detect Fingers on the real rig, Hold lock, placing all markers (time it), Autoassign
 (look at every finger), Fill From Chart, blow effects with the real take's CC2, Bake, playback with audio,
 HUD preview, and export of 10 s. Also: the Hold box's bone guess on the real rig (Rigify gives
-`hand_fk`; check the lock doesn't fight Rigify's IK/FK switch), and hand accuracy against the sax while breathing.
+`hand_fk`; check the lock doesn't fight Rigify's IK/FK switch, nor `upper_arm_fk`'s Inherit Scale change),
+and hand accuracy against the sax while breathing. From step 4: record every Autoassign "fingertip … mm off"
+message. If misses come from the knuckle needing to extend past rest, note it: step 7 can allow about 10° of
+knuckle extension (one constant in `core/rigs.ik_joint_settings`, measured on the Rigify metarig). Check whether
+Detect lists the thumb as curling around another axis (it would need a per-finger Bend Axis override). Judge
+whether finger curls look natural or bend mostly one joint.
 
 **Report:** an issue table with columns #, area, what happened, expected, severity (blocker / bad / polish), and
 suggested fix. Severity ratings are needed because the planner turns this table into step 7.
@@ -218,6 +224,9 @@ suggested fix. Severity ratings are needed because the planner turns this table 
 ## Step 7: Fixes from the trial
 
 The scope is set by the planner after step 6: each blocker or bad issue becomes a task here, or a step of its own if large.
+
+Candidates already known (included only if the trial confirms them): knuckle extension allowance (~10°);
+per-finger Bend Axis override (thumb); spread curl across joints instead of bending mostly one (step 4 report).
 
 ---
 
