@@ -113,8 +113,13 @@ Your rig's active action (for example an idle) moves to a `Base:` track undernea
 2. Size, look-ahead, hit-line position, names (written or concert, letters or Dó Ré Mi, sharps
    or flats) and colours.
 3. **Export HUD** renders the scene's frame range to `hud_####.png` with transparency (pick ProRes
-   4444 to also get a .mov). In DaVinci Resolve, drop the image sequence on a track above your video.
-4. Or **Make Composite Scene**: a new scene that renders your scene with the HUD at the bottom.
+   4444 to also get a .mov with alpha). In DaVinci Resolve, drop the image sequence on a track above your video.
+   If your Blender's FFmpeg can't write ProRes 4444, the export says so; the PNG sequence is still complete.
+4. Or **Make Composite Scene**: a new scene that renders your scene with the HUD at the bottom. It uses
+   your scene's colour management, so your render looks the same as when you render it directly. With the
+   **Standard** or **ACES** view the HUD keeps its exact colours. With **AgX** (Blender's default) or
+   **Filmic**, or with a Look, exposure, gamma or curves, Blender tones the HUD too (AgX makes the gold
+   duller), and the operator warns you. For exact colours, overlay the exported PNGs in your editor.
 
 Export needs Blender's UI (it draws with the GPU), not `blender -b`.
 

@@ -692,10 +692,13 @@ class MIDIANIM_OT_hud_composite(bpy.types.Operator):
     def execute(self, context):
         s = state.settings(context)
         try:
-            comp = hud_draw.composite_scene(context, bpy.path.abspath(s.hud.output_dir))
+            comp, warning = hud_draw.composite_scene(context, bpy.path.abspath(s.hud.output_dir))
         except Exception as e:
             return _err(self, e)
-        self.report({"INFO"}, f"Created scene '{comp.name}': render it for the video with the HUD")
+        if warning:
+            self.report({"WARNING"}, f"Created scene '{comp.name}'. {warning}")
+        else:
+            self.report({"INFO"}, f"Created scene '{comp.name}': render it for the video with the HUD")
         return {"FINISHED"}
 
 

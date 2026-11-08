@@ -6,6 +6,13 @@ from ..core import fingering as core_fing
 from . import autoassign, rig, state
 
 
+def _labeled(layout, text, factor=0.38):
+    """A row with a label on the left; returns the right-hand part for the value."""
+    split = layout.split(factor=factor, align=True)
+    split.label(text=text)
+    return split
+
+
 class MIDIANIM_UL_notes(bpy.types.UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
         s = state.settings(context)
@@ -87,15 +94,19 @@ class MIDIANIM_PT_fingers(MIDIANIM_PT_base, bpy.types.Panel):
         layout.prop(s, "rig")
         box = layout.box()
         box.label(text="Hold the instrument", icon="CON_CHILDOF")
-        box.prop(s, "instrument")
+        # Explicit label splits: the default label column cuts these names off in a default-width sidebar
+        _labeled(box, "Instrument").prop(s, "instrument", text="")
         if s.rig:
-            for attr in ("hold_strap_bone", "hold_hand_l", "hold_hand_r"):
-                box.prop_search(s, attr, s.rig.data, "bones")
+            for attr, label in (("hold_strap_bone", "Strap Bone"), ("hold_hand_l", "Left Hand"),
+                                ("hold_hand_r", "Right Hand")):
+                _labeled(box, label).prop_search(s, attr, s.rig.data, "bones", text="")
+        box.operator("midianim.guess_hold_bones", icon="VIEWZOOM")
         r = box.row(align=True)
-        r.operator("midianim.guess_hold_bones", icon="VIEWZOOM")
         r.operator("midianim.lock_hands", icon="LOCKED")
         r.operator("midianim.unlock_hands", icon="UNLOCKED")
-        box.label(text="Pose the hold first: instrument at the lips, hands on the keys")
+        col = box.column(align=True)        # two lines: one is cut off in the default sidebar width
+        col.label(text="Pose the hold first:", icon="INFO")
+        col.label(text="instrument at lips, hands on keys", icon="BLANK1")
         layout.operator("midianim.detect_fingers", icon="HAND")
         if not s.fingers:
             layout.label(text="Detect Fingers (or Analyze) to list the finger slots")

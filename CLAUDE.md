@@ -29,16 +29,18 @@ Read `docs/plan/AGENT_BRIEF.md` first and follow it: one step per branch, and a 
 ```
 python -m pytest tests/core                                        # core, anywhere
 blender -b --factory-startup --python tests/test_in_blender.py      # end-to-end in Blender 5.2
+blender --factory-startup --python tests/test_hud_in_ui.py              # HUD export/ProRes/composite/preview, needs a window
 python tests/hud_preview.py examples/aerophone_sample.mid out/ 0.3 4.9   # HUD frames via Pillow
 blender --command extension validate midi_animator                   # manifest (the e2e test doesn't check it)
 ```
 New logic goes in `core/` with a pytest test whenever it doesn't need Blender.
 
-## Status (2026-11-06)
-- `core/`: done, 35 tests passing.
+## Status (2026-11-07)
+- `core/`: done, 37 tests passing.
 - `blender/`: `tests/test_in_blender.py` passes in Blender 5.2.3 (2026-11-07), and the built
-  extension installs and enables. Still never run: HUD preview/export in `hud_draw.py` (ProRes 4444
-  encode, composite scene). Those need the UI (GPU), not `-b`.
+  extension installs and enables. The HUD (viewport preview, PNG export, ProRes 4444 with alpha,
+  composite scene) passes `tests/test_hud_in_ui.py` in Blender 5.2.3 with a window (2026-11-07, step 3).
+  The composite copies the scene's view transform; under AgX/Filmic the HUD colours are toned (warned).
 - `main` holds v1 since PR #4 (2026-11-07); the old single-file add-on is only in git history. `v1-rewrite` is retired.
 
 ## Conventions

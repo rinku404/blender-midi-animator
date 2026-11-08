@@ -44,16 +44,21 @@ def render(prims, style):
     return img
 
 
-def main():
-    path, out = sys.argv[1], sys.argv[2]
-    times = [float(t) for t in sys.argv[3:]] or [0.3, 4.9, 7.5]
+def frame(path, t, width=1280, height=300):
+    """Transparent HUD frame for a .mid file at time t (s), with the default style and auto pitch range."""
     m = M.parse_midi(path)
     notes = [(n.start, n.end, n.pitch) for n in M.monophonic(m.notes)]
     lo, hi = H.fit_pitch_range([n[2] for n in notes])
-    style = H.HudStyle(width=1280, height=300, pitch_lo=lo, pitch_hi=hi)
+    style = H.HudStyle(width=width, height=height, pitch_lo=lo, pitch_hi=hi)
+    return render(H.layout(notes, t, style, note_name), style)
+
+
+def main():
+    path, out = sys.argv[1], sys.argv[2]
+    times = [float(t) for t in sys.argv[3:]] or [0.3, 4.9, 7.5]
     os.makedirs(out, exist_ok=True)
     for t in times:
-        img = render(H.layout(notes, t, style, note_name), style)
+        img = frame(path, t)
         bg = Image.new("RGBA", img.size, (90, 120, 90, 255))      # stand-in for the video
         Image.alpha_composite(bg, img).save(os.path.join(out, f"hud_{t:05.2f}.png"))
     print("wrote", sorted(os.listdir(out)))
