@@ -80,7 +80,7 @@ SAX_SLOTS = (
     FingerSlot("L2", "L Middle", "L", "middle", ("A",)),
     FingerSlot("L3", "L Ring", "L", "ring", ("G",)),
     FingerSlot("L4", "L Pinky", "L", "pinky", ("G#", "LowC#", "LowB", "LowBb")),
-    FingerSlot("R1", "R Index", "R", "index", ("F", "SideBb", "SideC", "SideE")),
+    FingerSlot("R1", "R Index", "R", "index", ("F", "SideBb", "SideC", "SideE", "HighF#")),
     FingerSlot("R2", "R Middle", "R", "middle", ("E",)),
     FingerSlot("R3", "R Ring", "R", "ring", ("D",)),
     FingerSlot("R4", "R Pinky", "R", "pinky", ("LowEb", "LowC")),
@@ -88,9 +88,22 @@ SAX_SLOTS = (
 
 
 def _sax_chart():
-    """Standard saxophone fingerings by written pitch (Bb3 .. F6). Each entry lists only the
-    fingers that press a key; every other finger is up. Palm keys are simplified to one
-    marker for the left index ("PalmEb" = D+Eb palm keys together, "PalmF" = D+Eb+F)."""
+    """Standard saxophone fingerings by written pitch, Bb3 .. F#6 (58 .. 90). Each entry lists
+    only the fingers that press a key; every other finger is up.
+
+    One finger presses one marker, so keys that a hand presses together are one marker:
+    - left palm keys (left index): "PalmD" = palm D, "PalmEb" = palm D + Eb together,
+      "PalmF" = palm D + Eb + F together;
+    - right side keys (right index): "SideE" = the high E side key, "HighF#" = side E + the
+      high F# key together.
+
+    Intentional differences from the old single-file add-on's chart (PR #2, plan step 1):
+    - Bb3, B3, C#4, G#4 use distinct left-pinky keys (LowBb, LowB, LowC#, G#) where the old chart
+      had one "LP" element; C4 and D#4 likewise use LowC / LowEb for "RP".
+    - D6 .. F#6 say which palm / side keys are pressed (old chart: one "Palm" element for all).
+    - Pitches outside 58 .. 90 are not mapped, so Analyze and Bake report them; the old chart
+      clamped them silently to the nearest end.
+    """
     lh = {"L1": "B", "L2": "A", "L3": "G"}
     rh = {"R1": "F", "R2": "E", "R3": "D"}
     full = {**lh, **rh}
@@ -98,7 +111,7 @@ def _sax_chart():
         "Bb3": {**full, "L4": "LowBb"},
         "B3": {**full, "L4": "LowB"},
         "C4": {**full, "R4": "LowC"},
-        "C#4": {**full, "R4": "LowC", "L4": "LowC#"},
+        "C#4": {**full, "L4": "LowC#"},
         "D4": dict(full),
         "D#4": {**full, "R4": "LowEb"},
         "E4": {**lh, "R1": "F", "R2": "E"},
@@ -122,6 +135,7 @@ def _sax_chart():
     chart[parse_note_name("D#6")] = {"LT": "Octave", "L1": "PalmEb"}
     chart[parse_note_name("E6")] = {"LT": "Octave", "L1": "PalmEb", "R1": "SideE"}
     chart[parse_note_name("F6")] = {"LT": "Octave", "L1": "PalmF", "R1": "SideE"}
+    chart[parse_note_name("F#6")] = {"LT": "Octave", "L1": "PalmF", "R1": "HighF#"}
     return chart
 
 

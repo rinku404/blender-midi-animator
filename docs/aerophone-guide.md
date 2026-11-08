@@ -71,7 +71,7 @@ breathes with its chest, and a note HUD you can lay over the video.
 ## 4. Note map
 
 **3. Note Map**
-1. **Fill: This File** maps every note in the take from the built-in sax chart (**Fill: Whole Chart** maps Bb3–F6).
+1. **Fill: This File** maps every note in the take from the built-in sax chart (**Fill: Whole Chart** maps Bb3–F#6, written).
 2. Click a note to see its fingers. Each finger row has `up` plus the keys it can press, so you can
    change any of them. Copy and paste fingerings between notes.
 3. **Whole-hand Pose:** use a pose asset for that note instead of the combination (a trill shape, a gesture).
@@ -82,8 +82,27 @@ breathes with its chest, and a note HUD you can lay over the video.
 5. Timing: **Transition** (frames a finger takes to move), **Lift Lead** (frames lifting fingers
    leave early) and **Relax After** (rest length before the hand relaxes).
 
-Palm keys are simplified to one marker each: `PalmD`, `PalmEb` (D+Eb pressed together) and
-`PalmF` (D+Eb+F). Place those markers where the palm presses each combination.
+**High notes (palm and side keys).** One finger presses one marker, so keys that the hand
+presses together share one marker. The top of the range uses these (written pitch, all with the
+octave key, `LT:Octave`):
+
+| Note | Left index (`L1`) | Right index (`R1`) |
+|---|---|---|
+| D6 | `PalmD` | up |
+| D#6 | `PalmEb` | up |
+| E6 | `PalmEb` | `SideE` |
+| F6 | `PalmF` | `SideE` |
+| F#6 | `PalmF` | `HighF#` |
+
+Where to place each marker (on the instrument, arrow out of the key as usual):
+- `PalmD`: on the palm D key, where the side of the left index presses it alone.
+- `PalmEb`: where the left hand presses the palm D and Eb keys together, between the two.
+- `PalmF`: where the left hand presses palm D, Eb and F together, between the three (closer to F).
+- `SideE`: on the high E side key, where the side of the right index presses it.
+- `HighF#`: where the right hand presses the side E key and the high F# key together, between the two.
+
+You only need markers for the notes you play: a key without a marker gets no poses, and Bake lists
+what is missing.
 
 ## 5. Blow
 
