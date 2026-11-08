@@ -25,11 +25,34 @@ def test_sax_chart_basics():
     assert SAX.chart[n("C#5")] == {}
     assert SAX.chart[n("D5")] == {**SAX.chart[n("D4")], "LT": "Octave"}
     assert SAX.chart[n("Bb3")]["L4"] == "LowBb"
-    assert min(SAX.chart) == n("Bb3") and max(SAX.chart) == n("F6")
+    assert min(SAX.chart) == n("Bb3") and max(SAX.chart) == n("F#6") == 90
     # every key used by the chart belongs to that finger
     for combo in SAX.chart.values():
         for slot, key in combo.items():
             assert key in SAX.slot(slot).keys
+
+
+def test_sax_chart_full_range():
+    # every written pitch Bb3 .. F#6 is mapped, and nothing outside it
+    assert sorted(SAX.chart) == list(range(58, 91))
+    for pitch, combo in SAX.chart.items():
+        for slot, key in combo.items():
+            assert SAX.slot(slot) is not None, (pitch, slot)
+            assert key in SAX.slot(slot).keys, (pitch, slot, key)
+        # the octave key is pressed from written D5 (74) up, never below
+        assert (combo.get("LT") == "Octave") == (pitch >= 74), pitch
+
+
+def test_sax_chart_palm_and_side_keys():
+    assert SAX.chart[n("D6")] == {"LT": "Octave", "L1": "PalmD"}
+    assert SAX.chart[n("D#6")] == {"LT": "Octave", "L1": "PalmEb"}
+    assert SAX.chart[n("E6")] == {"LT": "Octave", "L1": "PalmEb", "R1": "SideE"}
+    assert SAX.chart[n("F6")] == {"LT": "Octave", "L1": "PalmF", "R1": "SideE"}
+    assert SAX.chart[n("F#6")] == {"LT": "Octave", "L1": "PalmF", "R1": "HighF#"}
+    # low C# is the left pinky's C# key alone (the mechanism closes the low C pad)
+    assert SAX.chart[n("C#4")] == {**SAX.chart[n("D4")], "L4": "LowC#"}
+    # new keys go after the home key, so homes and existing markers don't change
+    assert SAX.slot("R1").keys[0] == "F"
 
 
 def test_only_changed_fingers_move():

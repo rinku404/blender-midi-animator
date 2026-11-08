@@ -355,6 +355,12 @@ def main():
     assert bpy.ops.midianim.fill_from_chart(which="FILE") == {"FINISHED"}
     g4 = state.find_note(s, parse_note_name("G4"))
     assert state.parse_combination(g4.combination) == {"L1": "B", "L2": "A", "L3": "G"}
+    # Whole chart: Bb3 .. F#6, and the high F# key has its poses like any other key
+    assert bpy.ops.midianim.fill_from_chart(which="ALL") == {"FINISHED"}
+    assert [r.pitch for r in s.notes] == list(range(58, 91))
+    fs6 = state.find_note(s, parse_note_name("F#6"))
+    assert state.parse_combination(fs6.combination) == {"LT": "Octave", "L1": "PalmF", "R1": "HighF#"}
+    assert "F.R1.HighF#.Down" in bpy.data.actions and "F.R1.HighF#.Up" in bpy.data.actions
 
     hold_checks(scene, s, arm, sax, markers)
 

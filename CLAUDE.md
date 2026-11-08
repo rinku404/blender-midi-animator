@@ -36,7 +36,7 @@ blender --command extension validate midi_animator                   # manifest 
 New logic goes in `core/` with a pytest test whenever it doesn't need Blender.
 
 ## Status (2026-11-07)
-- `core/`: done, 37 tests passing.
+- `core/`: done, 39 tests passing (sax chart Bb3–F#6 since step 5).
 - `blender/`: `tests/test_in_blender.py` passes in Blender 5.2.3 (2026-11-07), and the built
   extension installs and enables. The HUD (viewport preview, PNG export, ProRes 4444 with alpha,
   composite scene) passes `tests/test_hud_in_ui.py` in Blender 5.2.3 with a window (2026-11-07, step 3).
