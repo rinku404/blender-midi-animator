@@ -3,8 +3,8 @@ step: 5
 title: "Chart completion: F#6, and a check against the old chart"
 status: done
 branch: plan/step-05-chart
-pr: (set after the PR is opened)
-commits: ad40820..(report commit)
+pr: "#8"
+commits: ad40820..a4ab2ce
 date: 2026-11-08
 blender: 5.2.3 LTS, "C:\Program Files\Blender Foundation\Blender 5.2\blender.exe"
 tests_core: 39 passed
