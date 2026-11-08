@@ -4,6 +4,9 @@
   (breathing) effect, which scales that bone, never scales the instrument (ADR 0011).
 - One target empty per hand ("MIDI Hold L/R") is parented to the instrument at the hand's current
   place. A 2-bone IK on the forearm reaches the target and the hand copies its rotation.
+- The arm chain's root (upper arm) stops inheriting scale while locked, so breathing (the Chest
+  effect scales the chest) never scales the arm: Blender's IK misses its target under a
+  non-uniformly scaled parent. Unlock puts the bone's setting back.
 - Everything is created from the current pose, so locking moves nothing.
 """
 
@@ -15,6 +18,7 @@ from ..core import rigs
 PREFIX = "MIDI Hold"
 STRAP_CON = f"{PREFIX} Strap"
 TARGETS = (("L", "hold_hand_l"), ("R", "hold_hand_r"))
+INHERIT_PROP = "midianim_inherit_scale"     # on the arm's root bone: its setting before Lock
 
 
 def guess_bones(s):
@@ -94,6 +98,31 @@ def _clear_hand_constraints(arm):
     return n
 
 
+def _arm_root(pb):
+    """Root bone of the 2-bone arm IK on the hand's parent (the upper arm), or None."""
+    fore = pb.parent
+    if fore is None:
+        return None
+    return fore.parent or fore
+
+
+def _stop_scale_inheritance(pb):
+    root = _arm_root(pb)
+    if root is None:
+        return
+    bone = root.bone
+    if INHERIT_PROP not in bone:            # keep the original through repeated locks
+        bone[INHERIT_PROP] = bone.inherit_scale
+    bone.inherit_scale = "NONE"
+
+
+def _restore_scale_inheritance(arm):
+    for bone in arm.data.bones:
+        if INHERIT_PROP in bone:
+            bone.inherit_scale = bone[INHERIT_PROP]
+            del bone[INHERIT_PROP]
+
+
 def lock_hands(context, s):
     """Returns a one-line summary. Safe to call again (it rebuilds the constraints)."""
     arm = s.rig
@@ -118,14 +147,18 @@ def lock_hands(context, s):
         cr = pb.constraints.new("COPY_ROTATION")
         cr.name = f"{PREFIX} Rotation"
         cr.target = tgt
+        _stop_scale_inheritance(pb)
     context.view_layer.update()
     return (f"{s.instrument.name} hangs from {s.hold_strap_bone}; hands locked to "
             f"{', '.join(t.name for t in targets.values())}. Move the targets to adjust the grip")
 
 
 def unlock_hands(context, s):
-    """Remove the hand constraints and targets. The instrument keeps hanging from the strap."""
+    """Remove the hand constraints and targets, and give the arms back their scale inheritance.
+    The instrument keeps hanging from the strap."""
     n = _clear_hand_constraints(s.rig) if s.rig else 0
+    if s.rig:
+        _restore_scale_inheritance(s.rig)
     for side, _ in TARGETS:
         o = bpy.data.objects.get(f"{PREFIX} {side}")
         if o:

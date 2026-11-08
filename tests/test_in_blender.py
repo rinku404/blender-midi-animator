@@ -2,9 +2,9 @@
 
     blender -b --factory-startup --python tests/test_in_blender.py
 
-Builds a small rig with Rigify-style finger names, an instrument with key markers and a
-face with a CheekPuff shape key; then Detect Fingers -> Autoassign -> Fill From Chart ->
-blow effects -> Bake, and checks the result.
+Builds a small rig with Rigify-style finger names (fingers curled a little downwards at rest),
+an instrument with key markers and a face with a CheekPuff shape key; then Detect Fingers ->
+Autoassign -> Fill From Chart -> blow effects -> Bake, and checks the result.
 """
 import math
 import os
@@ -21,6 +21,7 @@ from midi_animator.blender import actions, autoassign, rig, state  # noqa: E402
 from midi_animator.core.notes import parse_note_name  # noqa: E402
 
 MID = os.path.join(ROOT, "examples", "aerophone_sample.mid")
+CURL = math.radians(8)        # rest curl per joint (downwards): the test rig's bend axis is -X
 FINGERS = [("thumb", "L", -0.06), ("f_index", "L", -0.02), ("f_middle", "L", 0.0), ("f_ring", "L", 0.02),
            ("f_pinky", "L", 0.04), ("f_index", "R", -0.02), ("f_middle", "R", 0.0), ("f_ring", "R", 0.02),
            ("f_pinky", "R", 0.04)]
@@ -53,14 +54,15 @@ def build_scene():
         for name, s, z in FINGERS:
             if s != side:
                 continue
-            parent = hand
+            parent, head = hand, Vector((x, 0.1, 1.3 + z))
             for i in range(1, 4):
                 b = eb.new(f"{name}.0{i}.{side}")
-                y0 = 0.1 + (i - 1) * 0.03
-                b.head, b.tail = (x, y0, 1.3 + z), (x, y0 + 0.03, 1.3 + z)
+                a = CURL * (i - 1)
+                b.head, b.tail = head, head + Vector((0, math.cos(a), -math.sin(a))) * 0.03
+                b.roll = 0.0
                 b.parent = parent
                 b.use_connect = i > 1
-                parent = b
+                parent, head = b, b.tail.copy()
     bpy.ops.object.mode_set(mode="OBJECT")
 
     # Idle action that must survive as a base layer
@@ -83,7 +85,9 @@ def build_scene():
 
 
 def place_markers(s, arm):
-    """One marker per key, a little below each fingertip (keys of one finger side by side)."""
+    """One marker per key, below each fingertip, where the finger reaches it (and the hover point
+    above it) by curling. Keys of one finger lie side by side, the later ones a little to the
+    side, so the knuckle has to spread."""
     prof = state.profile(s)
     ctx = bpy.context
     ctx.view_layer.update()
@@ -91,7 +95,7 @@ def place_markers(s, arm):
         chain = rig.finger_bones(s)[slot.id]
         tip = arm.matrix_world @ arm.pose.bones[chain[-1]].tail
         for k, key in enumerate(slot.keys):
-            ctx.scene.cursor.location = tip + Vector((0.0, -0.01 - 0.004 * k, -0.02))
+            ctx.scene.cursor.location = tip + Vector((0.003 * k, -0.02, -0.03))
             ctx.scene.cursor.rotation_euler = (0, 0, 0)
             rig.add_marker(ctx, s, slot.id, key)
 
@@ -99,6 +103,51 @@ def place_markers(s, arm):
 def tip_world(arm, bone):
     bpy.context.view_layer.update()
     return arm.matrix_world @ arm.pose.bones[bone].tail
+
+
+def joint_angles(q):
+    """(bend around X, twist around Y, side turn) in degrees for a bone-space rotation: the
+    bone's direction (local Y) after q, in its rest frame, plus the swing-twist twist."""
+    d = q @ Vector((0, 1, 0))
+    bend = math.degrees(math.atan2(d.z, d.y))
+    side = math.degrees(math.asin(max(-1.0, min(1.0, d.x))))
+    twist = math.degrees(2 * math.atan2(q.y, q.w))
+    twist = (twist + 180) % 360 - 180
+    return bend, twist, side
+
+
+def bend_checks(s, arm, markers, slots=None, keep_twist=True):
+    """Every generated pose: joints turn only around the bend axis (-X here) and only to curl;
+    the knuckle may also spread; every pose still puts the tip on its target (Down: the key,
+    Up: the hover point). Returns (max against-the-axis bend in degrees, max turn on a locked
+    axis in degrees, max tip-to-target distance)."""
+    bones = rig.finger_bones(s)
+    against = locked = worst_tip = 0.0
+    sign = -1.0 if s.bend_axis.startswith("-") else 1.0
+    for slot in state.profile(s).slots:
+        if slots and slot.id not in slots:
+            continue
+        chain = bones[slot.id]
+        for key in slot.keys:
+            for down in (True, False):
+                name = autoassign.pose_name(slot.id, key, down)
+                if name not in bpy.data.actions:
+                    continue
+                bpy.ops.midianim.apply_pose(action=name)
+                bpy.context.view_layer.update()
+                for i, b in enumerate(chain):
+                    q = arm.pose.bones[b].rotation_quaternion.copy()
+                    bend, twist, side = joint_angles(q)
+                    against = max(against, -sign * bend)
+                    e = q.to_euler("XYZ")         # hinge joints: only X may be non-zero
+                    turns = [twist] if keep_twist else []
+                    if i > 0:
+                        turns += [side, math.degrees(e.z)] + ([math.degrees(e.y)] if keep_twist else [])
+                    locked = max([locked] + [abs(v) for v in turns])
+                mw = markers[(slot.id, key)].matrix_world
+                target = mw.translation if down else mw.translation + mw.to_3x3().col[2].normalized() * s.hover
+                worst_tip = max(worst_tip, (tip_world(arm, chain[-1]) - target).length)
+    return against, locked, worst_tip
 
 
 def hold_checks(scene, s, arm, sax, markers):
@@ -165,8 +214,9 @@ def hold_breath_checks(scene, s, arm, sax):
     assert chest_scale > 1.005, "Chest effect did not scale the bone, so this test proves nothing"
     assert probe_scale > 1.005, "bone parenting should scale (the reason for Child Of)"
     assert worst < 1e-4, worst
-    print(f"max hand-to-target gap while breathing: {gap * 1000:.1f} mm")
-    assert gap < 0.02, gap          # Blender's IK is not exact under a scaled parent
+    print(f"max hand-to-target gap while breathing: {gap * 1000:.3f} mm")
+    assert gap < 0.001, gap         # the upper arms don't inherit the chest's scale while locked
+    assert arm.data.bones["upper_arm.L"].inherit_scale == "NONE"
     bpy.data.objects.remove(probe)
 
     # Idempotent re-lock; unlock cleans up
@@ -177,6 +227,9 @@ def hold_breath_checks(scene, s, arm, sax):
     assert bpy.ops.midianim.unlock_hands() == {"FINISHED"}
     assert not any(c.name.startswith("MIDI Hold") for b in pb for c in b.constraints)
     assert "MIDI Hold L" not in bpy.data.objects and "MIDI Hold R" not in bpy.data.objects
+    for side in "LR":
+        b = arm.data.bones[f"upper_arm.{side}"]
+        assert b.inherit_scale == "FULL" and "midianim_inherit_scale" not in b, "inherit scale not restored"
     # Missing bones give a clean error, not a traceback
     s.hold_hand_r = "nope"
     try:
@@ -197,8 +250,12 @@ def main():
     assert bpy.ops.midianim.analyze() == {"FINISHED"}
     assert any("Unmapped" in line.text for line in s.report)
 
-    # Fingers
+    # Fingers (Detect Fingers also reads the bend axis from the rest curl)
+    s.bend_axis = "X"
     assert bpy.ops.midianim.detect_fingers() == {"FINISHED"}
+    assert s.bend_axis == "-X", s.bend_axis
+    s.bend_axis = "Z"
+    assert bpy.ops.midianim.detect_bend_axis() == {"FINISHED"} and s.bend_axis == "-X"
     bones = rig.finger_bones(s)
     assert bones["L1"] == ["f_index.01.L", "f_index.02.L", "f_index.03.L"], bones
     assert bones["LT"][0] == "thumb.01.L" and len(bones) == 9
@@ -208,7 +265,11 @@ def main():
     markers = rig.find_markers()
     assert markers[("L1", "B")].parent == sax
     rest_rot = tuple(arm.pose.bones["f_index.01.L"].rotation_quaternion)
+    ik_before = {a: getattr(arm.pose.bones["f_index.02.L"], a) for a in autoassign._IK_ATTRS}
+    assert s.rest_pose is None
     assert bpy.ops.midianim.autoassign() == {"FINISHED"}
+    ik_after = {a: getattr(arm.pose.bones["f_index.02.L"], a) for a in autoassign._IK_ATTRS}
+    assert ik_after == ik_before, "bone IK settings not restored"
     down = bpy.data.actions.get("F.L1.B.Down")
     up = bpy.data.actions.get("F.L1.B.Up")
     assert down is not None and down.asset_data is not None and up is not None
@@ -221,6 +282,63 @@ def main():
     print(f"tip distance: down {d_down:.4f}, up {d_up:.4f}")
     assert d_down < 0.004, d_down
     assert d_up > d_down + 0.005, (d_up, d_down)
+
+    # Bend direction: no joint twists, turns sideways (beyond the knuckle) or bends backwards
+    against, locked, worst_tip = bend_checks(s, arm, markers)
+    print(f"bend: max against the axis {against:.3f} deg, max on locked axes {locked:.3f} deg, "
+          f"max tip-to-target distance (Down and Up) {worst_tip * 1000:.2f} mm")
+    assert against < 1.0 and locked < 1.0 and worst_tip < 0.004, (against, locked, worst_tip)
+    # Plain IK for comparison (shows the check can fail)
+    saved_limits = autoassign._limit_chain
+    autoassign._limit_chain = lambda *a: {}
+    try:
+        s.force_autoassign = True
+        autoassign.autoassign(bpy.context, s, "L1")
+        free_against, free_locked, _ = bend_checks(s, arm, markers, {"L1"})
+    finally:
+        autoassign._limit_chain = saved_limits
+    print(f"plain IK for comparison: against {free_against:.1f} deg, locked axes {free_locked:.1f} deg")
+    assert max(free_against, free_locked) > 1.0, "plain IK already bends correctly: the check proves nothing"
+    # Keep Twist off: twist is free, the hinges still don't turn sideways or bend backwards
+    s.keep_twist = False
+    autoassign.autoassign(bpy.context, s, "L1")
+    nt = bend_checks(s, arm, markers, {"L1"}, keep_twist=False)
+    print(f"keep twist off: against {nt[0]:.3f} deg, side turn {nt[1]:.3f} deg, tip {nt[2] * 1000:.2f} mm")
+    assert nt[0] < 1.0 and nt[1] < 1.0 and nt[2] < 0.004, nt
+    s.keep_twist = True
+    autoassign.autoassign(bpy.context, s, "L1")
+    _, _, problems, _ = autoassign.autoassign(bpy.context, s)
+    assert problems == [], problems          # every Down and Up target reached
+    # A marker out of reach is reported, not silently missed
+    e_marker = markers[("R2", "E")]
+    e_marker.location.z += 0.2
+    _, _, problems, _ = autoassign.autoassign(bpy.context, s, "R2")
+    assert len(problems) == 1 and "mm off" in problems[0], problems
+    e_marker.location.z -= 0.2
+    autoassign.autoassign(bpy.context, s, "R2")
+    s.force_autoassign = False
+    assert max(bend_checks(s, arm, markers)[:2]) < 1.0
+
+    # Auto Rest: every finger up over its home key, plus the hand bones
+    rest = bpy.data.actions.get("F.Rest")
+    assert rest is not None and rest.asset_data is not None and s.rest_pose == rest
+    rest_vals = actions.pose_values(rest)
+    rest_bones = {actions.bone_of(p) for p, _ in rest_vals}
+    expected = {b for chain in rig.finger_bones(s).values() for b in chain} | {"hand.L", "hand.R"}
+    assert rest_bones == expected, rest_bones ^ expected
+    home_up = actions.pose_values(bpy.data.actions["F.L1.B.Up"])
+    assert all(abs(rest_vals[k] - v) < 1e-5 for k, v in home_up.items())
+    # A manual Rest pose wins
+    manual = actions.build_action(arm, "My Rest", [('pose.bones["hand.L"].location', 0, [(1, 0.0)])],
+                                  "CONSTANT", fake_user=True)
+    manual.asset_mark()
+    s.rest_pose = manual
+    assert bpy.ops.midianim.autoassign() == {"FINISHED"}
+    assert s.rest_pose == manual and "F.Rest" in bpy.data.actions
+    s.rest_pose = None
+    assert bpy.ops.midianim.autoassign() == {"FINISHED"}
+    assert s.rest_pose == bpy.data.actions["F.Rest"]
+    bpy.data.actions.remove(manual)
 
     # Lock: editing a pose locks it; Autoassign keeps it
     autoassign_pose = bpy.data.actions["F.L2.A.Down"]
@@ -273,6 +391,13 @@ def main():
     scene.frame_set(int(1 + 4.6 * fps))       # late in the first phrase: lungs emptier
     assert arm.pose.bones["chest"].scale.x < sy_mid
     assert abs(arm.pose.bones["hand.L"].location.y - 0.05) < 1e-4, "base idle lost"
+    # The rest between phrases (5.4 s .. 6.6 s) uses the auto Rest pose
+    scene.frame_set(int(1 + 6.0 * fps))
+    l2 = set(rig.finger_bones(s)["L2"])
+    for (path, idx), v in actions.pose_values(bpy.data.actions["F.Rest"], l2).items():
+        owner, prop = path.rsplit(".", 1)
+        got = getattr(arm.path_resolve(owner), prop)[idx]
+        assert abs(got - v) < 1e-3, ("rest", path, idx, got, v)
 
     hold_breath_checks(scene, s, arm, sax)
 

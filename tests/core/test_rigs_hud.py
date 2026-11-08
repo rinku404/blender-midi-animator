@@ -94,3 +94,57 @@ def test_guess_hold_bones_simple_and_empty():
     simple = _names("spine", "chest", "hand.L", "hand.R", "forearm.L", "thumb.L")
     assert R.guess_hold_bones(simple) == ("chest", "hand.L", "hand.R")
     assert R.guess_hold_bones(_names("root", "arm")) == ("", "", "")
+
+
+# -- bend axis ----------------------------------------------------------------
+
+def _curled(angle_deg, axis):
+    """Child frame after the parent (along +Y, X = +X, Z = +Z) turned by angle around a local axis."""
+    import math
+    a = math.radians(angle_deg)
+    c, s = math.cos(a), math.sin(a)
+    if axis == "X":      # Y turns toward Z
+        return (1, 0, 0), (0, c, s), (0, -s, c)
+    return (c, s, 0), (-s, c, 0), (0, 0, 1)        # around Z: Y turns toward -X
+
+
+def test_joint_curl_sign_matches_rotation():
+    cx, cy, cz = _curled(10, "X")
+    x, z = R.joint_curl((0, 1, 0), cx, cy, cz)
+    assert x > 0.15 and abs(z) < 1e-9          # positive rotation around X bends it this way
+    cx, cy, cz = _curled(-10, "X")
+    assert R.joint_curl((0, 1, 0), cx, cy, cz)[0] < -0.15
+    cx, cy, cz = _curled(8, "Z")
+    x, z = R.joint_curl((0, 1, 0), cx, cy, cz)
+    assert z > 0.1 and abs(x) < 1e-9
+
+
+def test_detect_bend_axis():
+    # Rigify human metarig (measured in Blender 5.2): the joints inside the fingers curl around +X
+    rigify = [(0.155, -0.007), (0.226, -0.067), (0.312, -0.147), (0.033, -0.082), (0.087, 0.033)]
+    assert R.detect_bend_axis(rigify) == "X"
+    assert R.detect_bend_axis([(-x, z) for x, z in rigify]) == "-X"
+    assert R.detect_bend_axis([(0.01, 0.2), (0.0, 0.1)]) == "Z"
+    assert R.detect_bend_axis([(0.01, -0.2)]) == "-Z"
+    assert R.detect_bend_axis([(0.001, 0.0), (0.0, -0.001)]) is None    # straight fingers
+    assert R.detect_bend_axis([]) is None
+
+
+def test_ik_joint_settings():
+    import math
+    hinge = R.ik_joint_settings("X", keep_twist=True)
+    assert hinge["lock_ik_y"] and hinge["lock_ik_z"] and not hinge["lock_ik_x"]
+    assert hinge["use_ik_limit_x"] and hinge["ik_min_x"] == 0.0 and hinge["ik_max_x"] > math.radians(90)
+    root = R.ik_joint_settings("X", keep_twist=True, root=True)
+    assert not root["lock_ik_z"] and root["use_ik_limit_z"]          # knuckle may spread
+    assert abs(root["ik_max_z"] - math.radians(R.ROOT_SPREAD_DEG)) < 1e-9
+    neg = R.ik_joint_settings("-Z", keep_twist=False)
+    assert neg["lock_ik_x"] and not neg["lock_ik_y"] and not neg["lock_ik_z"]
+    assert neg["ik_max_z"] == 0.0 and neg["ik_min_z"] < -math.radians(90)
+    assert R.locked_axes("X") == ["y", "z"]
+    assert R.locked_axes("X", keep_twist=False, root=True) == []
+    try:
+        R.ik_joint_settings("Y")
+        raise AssertionError("Y is the bone's own axis, not a bend axis")
+    except ValueError:
+        pass

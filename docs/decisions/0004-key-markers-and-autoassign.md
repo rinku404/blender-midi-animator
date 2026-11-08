@@ -17,3 +17,18 @@ The user wants an autoassign button that snaps fingers to the instrument's keys.
 ## Consequences
 
 Poses are ordinary, hand-tweakable assets. Because the instrument is parented to the hand, pre-solved poses stay correct. If the instrument moves relative to the hand, re-run Autoassign. Later, markers could become instrument bones so the keys animate too.
+
+## Note (2026-11-07, plan step 4)
+
+Refinements inside this decision, no change to it:
+
+- While solving, each finger joint's IK is limited to the rig's **Bend Axis** (a scene setting:
+  X, -X, Z or -Z; X by default, which is what Rigify uses; *Detect* reads it from the rest curl
+  and Detect Fingers sets it too). Middle and end joints are hinges that only curl (0 to 120°
+  from rest); the knuckle may also spread ±25°. **Keep Twist** (default on) locks the twist.
+  The bones' own IK settings are restored afterwards. Autoassign reports a fingertip that ends
+  more than 3 mm from its target.
+- Autoassign also builds **`F.Rest`** (each finger's Up pose over its home key, the slot's first
+  key, plus the bones that carry the fingers and the hold's hand bones, as posed now) and uses
+  it as the Rest pose when none is set. A Rest pose picked by the user is never replaced.
+  `F.Rest` carries the same fingerprint lock as the other generated poses.

@@ -33,3 +33,12 @@ world scale of 1.04 during the bake, while the instrument's stays 1.0 exactly.
 - Blender's IK is not exact under a scaled parent: with the Chest effect at its default 0.04, the
   hand sits up to ~8 mm off its target at peak breath (test rig). Acceptable for v1; step 4/6 may revisit.
 - Rig-scale is ignored by the constraint (scale off also strips a scaled Armature object's scale).
+
+## Note (2026-11-07, plan step 4)
+
+The ~8 mm hand drift under breathing is gone. While the hold is locked, the root of each arm's
+IK chain (the upper arm) has its *Inherit Scale* set to *None*, so the chest's breathing scale no
+longer reaches the arm chain and the IK is exact again (measured gap: 0.000 mm, was 7.9 mm). The
+original setting is stored on the bone (`midianim_inherit_scale`) and restored by Unlock; re-locking
+keeps the stored original. Side effect: while locked, the arms don't scale with the chest, which
+is also what a breathing chest should look like. The decision itself is unchanged.

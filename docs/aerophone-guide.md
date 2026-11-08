@@ -25,7 +25,8 @@ breathes with its chest, and a note HUD you can lay over the video.
 
 **2. Fingers & Keys**
 1. Set **Character Rig** and click **Detect Fingers**. Rigify, Mixamo and VRoid names are recognised.
-   Fix any finger by picking its bones (root → tip).
+   Fix any finger by picking its bones (root → tip). Detect Fingers also sets the **Bend Axis**
+   (in the Autoassign box) from the way the fingers curl at rest; see step 5.
 2. **Hold the instrument.** A real sax hangs from a neck strap at chest height, angled down and to
    the player's right, with the mouthpiece in the mouth and the bell near the right hip. The **left
    hand is on top** (thumb on the thumb rest and octave key; index, middle and ring on B, A and G).
@@ -40,15 +41,28 @@ breathes with its chest, and a note HUD you can lay over the video.
       (`MIDI Hold L` and `MIDI Hold R`) keep the hands glued to it with IK wherever the body moves.
       To adjust the grip, move those targets. **Unlock** removes the targets and constraints (the
       instrument stays on the strap).
-   The Chest breathing effect scales the chest bone but never the instrument. Expect the hands to
-   sit up to about a centimetre off their targets at the peak of a breath, because Blender's IK is
-   not exact under a scaled parent. Lower the Chest effect's *Max* if that bothers you.
+   The Chest breathing effect scales the chest bone but never the instrument or the arms: while
+   locked, each upper arm's *Inherit Scale* is set to *None* (Blender's IK misses its target under
+   a scaled parent), so the hands stay on their targets. **Unlock** puts the setting back.
 3. **Place key markers.** Select a finger in the list. For each of its keys, put the 3D cursor on
    the key (or select the key's vertices in Edit Mode, and the marker's arrow follows their normal)
    and click **Place**. The arrow should point out of the key, toward where the finger lifts.
 4. **Hover Height:** how high a lifted finger floats above its key.
 5. Click **Autoassign Finger Poses**. Every finger is solved onto each of its markers (Down) and
    above it (Up) and saved as pose assets such as `F.L1.B.Down`.
+   - Fingers only bend the way they curl: each joint turns around the **Bend Axis** and only
+     in the curling direction, so no finger twists sideways or bends backwards (the knuckle may
+     also spread a little to reach side keys). Rigify fingers curl around **X**; for other rigs
+     click **Detect** next to it. If the rig's fingers are straight at rest, Detect can't tell:
+     rotate one finger joint in Pose Mode to see which axis curls it, and pick that one
+     (with a minus if the curl is a negative rotation).
+   - **Keep Twist** (on by default) also stops the bones twisting around their own length.
+   - If a fingertip can't reach its target this way, the status bar says which finger and key,
+     and by how much. Move the marker within reach, check the Bend Axis, or curl the hand more
+     in your hold pose.
+   - Autoassign also builds **`F.Rest`**: every finger up over its home key (the first key in
+     its list, for example B for the left index) and the hand bones as they are now. It becomes
+     the **Rest Pose** if you haven't set one (see the Note Map).
 6. Check a pose with the eye button. To fix one, apply it, tweak the bones, and update the pose
    asset. The pose locks itself and Autoassign won't overwrite it. You can also toggle the lock
    by hand, or tick **Overwrite Locked** to regenerate everything.
@@ -61,8 +75,10 @@ breathes with its chest, and a note HUD you can lay over the video.
 2. Click a note to see its fingers. Each finger row has `up` plus the keys it can press, so you can
    change any of them. Copy and paste fingerings between notes.
 3. **Whole-hand Pose:** use a pose asset for that note instead of the combination (a trill shape, a gesture).
-4. **Rest Pose:** a relaxed hand between phrases. Select the hand and finger bones in Pose Mode
-   and use **Save Pose Asset** with "Use As: Rest Pose".
+4. **Rest Pose:** the hand between phrases. Autoassign fills it with `F.Rest` (fingers up over
+   their home keys). For your own, select the hand and finger bones in Pose Mode and use
+   **Save Pose Asset** with "Use As: Rest Pose". Your own Rest Pose always wins: Autoassign still
+   updates `F.Rest` but leaves your choice alone.
 5. Timing: **Transition** (frames a finger takes to move), **Lift Lead** (frames lifting fingers
    leave early) and **Relax After** (rest length before the hand relaxes).
 
@@ -106,7 +122,8 @@ Export needs Blender's UI (it draws with the GPU), not `blender -b`.
 
 - **The sax drifts away from the hands:** use **Lock** in the Hold box. Parenting it to the Armature object or to one hand doesn't keep both hands on it.
 - **A finger doesn't move:** check its bones in panel 2 and that its markers exist, then run Autoassign. Bake lists missing poses.
-- **The fingertip misses the key:** move the marker and run Autoassign again (unlock the pose if you edited it).
+- **The fingertip misses the key:** move the marker and run Autoassign again (unlock the pose if you edited it). If the status bar says "fingertip … mm off", check the **Bend Axis**.
+- **Fingers bend backwards or sideways:** the **Bend Axis** is wrong for this rig. Click **Detect**, or pick it by hand, and run Autoassign with **Overwrite Locked**.
 - **Wrong notes fingered:** adjust **Transpose**.
 - **Cheeks don't move:** the effect's object must have the shape key. Check the status line for the blow source.
 - **"CC2 not in file":** the export lost the CC lane, or the Aerophone sends breath on another controller (see Analyze's Controllers line).
