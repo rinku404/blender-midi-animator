@@ -148,3 +148,19 @@ def test_ik_joint_settings():
         raise AssertionError("Y is the bone's own axis, not a bend axis")
     except ValueError:
         pass
+
+
+def test_overlay_colorspace_exact_views():
+    assert H.overlay_colorspace("Standard") == ("sRGB", True, "")
+    assert H.overlay_colorspace("ACES 2.0") == ("ACES 2.0 sRGB", True, "")
+
+
+def test_overlay_colorspace_toned_cases():
+    space, exact, why = H.overlay_colorspace("AgX")
+    assert (space, exact) == ("AgX Base sRGB", False) and "AgX" in why
+    space, exact, why = H.overlay_colorspace("Filmic", look="Medium Contrast")
+    assert (space, exact) == ("Filmic sRGB", False) and "look" in why
+    assert H.overlay_colorspace("Standard", exposure=1.0)[1] is False
+    assert H.overlay_colorspace("Standard", curves=True)[2] == "curves"
+    assert H.overlay_colorspace("False Color")[:2] == ("sRGB", False)
+    assert H.overlay_colorspace("Standard", display="Display P3")[:2] == ("sRGB", False)

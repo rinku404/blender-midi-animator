@@ -15,3 +15,12 @@ The user wants an Ocarina-of-Time / Guitar-Hero style overlay to put on a video.
 ## Consequences
 
 Export needs Blender's UI (GPU), not `-b`. A fingering diagram in the HUD is deferred.
+
+## Note (2026-11-07, step 3)
+
+Colour management, chosen by the user. The ProRes encode runs in a scene with the Standard view, so
+the .mov matches the PNGs. The composite scene copies the source scene's view, look, exposure,
+gamma and display, so the render looks the same as when rendered directly. The HUD strip is read in
+the matching display space (`core/hud.py::overlay_colorspace`), which cancels Standard and ACES
+exactly (gold within 2%). AgX and Filmic can't be inverted in Blender 5.2, so there the HUD is toned
+and Make Composite Scene warns. The PNG/ProRes overlay in an editor is the exact path.

@@ -162,3 +162,44 @@ def layout(notes, t, style, name_fn):
         prims.append(Text(hit + text_width(name_fn(pitch), H * style.now_size) / 2 + 24,
                           band_mid - tsize * 0.45, tsize, f"{held:.1f}s", "timer", "LEFT"))
     return prims
+
+
+# ---------------------------------------------------------------------------
+# Colour management for the in-Blender composite
+# ---------------------------------------------------------------------------
+
+# A sequencer render applies the scene's view transform to every strip, the HUD included. Reading
+# the HUD strip in the display-referred space of that view cancels the transform. Measured in
+# Blender 5.2.3 over a scene strip (tests/test_hud_in_ui.py, step 3 report): these views give the
+# HUD's gold back within 2%.
+OVERLAY_EXACT = {
+    "Standard": "sRGB",
+    "ACES 1.3": "ACES 1.3 sRGB",
+    "ACES 2.0": "ACES 2.0 sRGB",
+}
+# These spaces don't invert their view, but come closer than plain sRGB for the default colours
+# (worst channel: Filmic 0.025 instead of 0.19, AgX 0.14 instead of 0.23).
+OVERLAY_NEAR = {
+    "Filmic": "Filmic sRGB",
+    "AgX": "AgX Base sRGB",
+}
+
+
+def overlay_colorspace(view, look="None", display="sRGB", exposure=0.0, gamma=1.0, curves=False):
+    """Colour space for the HUD image strip in a composite rendered with this view.
+
+    Returns (colorspace, exact, why): exact is False when the HUD colours will be toned by the
+    view, and why then says what tones them (for a warning)."""
+    if display != "sRGB":
+        return "sRGB", False, f"display '{display}'"
+    space = OVERLAY_EXACT.get(view) or OVERLAY_NEAR.get(view) or "sRGB"
+    why = []
+    if view not in OVERLAY_EXACT:
+        why.append(f"view transform '{view}'")
+    if look not in ("None", "", None):
+        why.append(f"look '{look}'")
+    if abs(exposure) > 1e-6 or abs(gamma - 1.0) > 1e-6:
+        why.append("exposure/gamma")
+    if curves:
+        why.append("curves")
+    return space, not why, ", ".join(why)

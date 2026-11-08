@@ -216,6 +216,22 @@ def _sequence_files(folder):
     return sorted(f for f in os.listdir(folder) if f.startswith("hud_") and f.endswith(".png"))
 
 
+def _neutral_view(scene):
+    """Show images exactly as stored: no view transform, look, exposure or curves."""
+    scene.display_settings.display_device = "sRGB"
+    v = scene.view_settings
+    v.view_transform, v.look = "Standard", "None"
+    v.exposure, v.gamma, v.use_curve_mapping = 0.0, 1.0, False
+
+
+def _set_enum(owner, attr, value):
+    try:
+        setattr(owner, attr, value)
+    except (TypeError, AttributeError):
+        return False
+    return getattr(owner, attr) == value
+
+
 def encode_prores(context, folder):
     """Encode the PNG sequence to ProRes 4444 with alpha through a temporary scene."""
     scene = context.scene
@@ -223,8 +239,14 @@ def encode_prores(context, folder):
     if not files:
         raise FileNotFoundError("Export the PNG sequence first")
     s = scene.midi_animator
+
+    def no_prores(why):
+        return (f"This Blender's FFmpeg can't write ProRes 4444 with alpha ({why}). "
+                f"The PNG sequence in {folder} is complete: use it instead.")
+
     tmp = bpy.data.scenes.new("MIDIANIM_HUD_encode")
     try:
+        _neutral_view(tmp)          # new scenes default to AgX, which would tone the HUD's colours
         tmp.render.resolution_x, tmp.render.resolution_y = s.hud.width, s.hud.height
         tmp.render.resolution_percentage = 100
         tmp.render.fps, tmp.render.fps_base = scene.render.fps, scene.render.fps_base
@@ -233,17 +255,22 @@ def encode_prores(context, folder):
         r = tmp.render
         if hasattr(r.image_settings, "media_type"):
             r.image_settings.media_type = "VIDEO"
-        r.image_settings.file_format = "FFMPEG"
+        if not _set_enum(r.image_settings, "file_format", "FFMPEG"):
+            raise RuntimeError(no_prores("no FFmpeg output"))
         r.ffmpeg.format = "QUICKTIME"
-        r.ffmpeg.codec = "PRORES"
-        for attr in ("ffmpeg_prores_profile", "ffprores_profile", "prores_profile"):
-            if hasattr(r.ffmpeg, attr):
-                setattr(r.ffmpeg, attr, "4444")
-                break
-        r.image_settings.color_mode = "RGBA"
+        if not _set_enum(r.ffmpeg, "codec", "PRORES"):
+            raise RuntimeError(no_prores("no ProRes codec"))
+        if not _set_enum(r.ffmpeg, "ffmpeg_prores_profile", "4444"):
+            raise RuntimeError(no_prores("no 4444 profile"))
+        if not _set_enum(r.image_settings, "color_mode", "RGBA"):
+            raise RuntimeError(no_prores("no alpha channel"))
         r.use_sequencer = True
         r.filepath = os.path.join(folder, "hud.mov")
+        if os.path.isfile(r.filepath):
+            os.remove(r.filepath)
         bpy.ops.render.render(animation=True, scene=tmp.name)
+        if not os.path.isfile(r.filepath) or os.path.getsize(r.filepath) == 0:
+            raise RuntimeError(f"ProRes encoding wrote no {r.filepath}; the PNG sequence is complete")
         return r.filepath
     finally:
         bpy.data.scenes.remove(tmp)
@@ -251,7 +278,11 @@ def encode_prores(context, folder):
 
 def composite_scene(context, folder):
     """Make '<scene> + HUD': a sequencer scene with this scene's render and the HUD on top,
-    at the bottom of the frame. Render that scene to get the video with the HUD burnt in."""
+    at the bottom of the frame. Render that scene to get the video with the HUD burnt in.
+
+    Returns (scene, warning). The composite uses this scene's colour management so the render
+    looks the same; the HUD strip is read in the matching display space so the view transform
+    cancels on it. warning is set when that can't be exact (the HUD colours get toned)."""
     scene = context.scene
     files = _sequence_files(folder)
     if not files:
@@ -266,11 +297,26 @@ def composite_scene(context, folder):
     r.resolution_percentage = src.resolution_percentage
     r.fps, r.fps_base = src.fps, src.fps_base
     comp.frame_start, comp.frame_end = scene.frame_start, scene.frame_end
+
+    sv, cv = scene.view_settings, comp.view_settings
+    comp.display_settings.display_device = scene.display_settings.display_device
+    cv.view_transform, cv.look = sv.view_transform, sv.look
+    cv.exposure, cv.gamma, cv.use_curve_mapping = sv.exposure, sv.gamma, sv.use_curve_mapping
+    comp.sequencer_colorspace_settings.name = scene.sequencer_colorspace_settings.name
+
     strips = _strips(comp)
     strips.new_scene(scene.name, scene, channel=1, frame_start=scene.frame_start)
     hud = _image_strip_from_sequence(strips, "HUD", folder, scene.frame_start, 2, files)
     hud.blend_type = "ALPHA_OVER"
-    out_h = src.resolution_y * src.resolution_percentage / 100
+    space, exact, why = core_hud.overlay_colorspace(
+        sv.view_transform, sv.look, scene.display_settings.display_device,
+        sv.exposure, sv.gamma, sv.use_curve_mapping)
+    hud.colorspace_settings.name = space
+    # Strip offsets are in full-resolution pixels; the render percentage scales the whole frame
     if hasattr(hud, "transform"):
-        hud.transform.offset_y = -(out_h - scene.midi_animator.hud.height) / 2
-    return comp
+        hud.transform.offset_y = -(src.resolution_y - scene.midi_animator.hud.height) / 2
+    warning = None
+    if not exact:
+        warning = (f"The HUD colours are toned by this scene's {why}. For exact colours, overlay "
+                   f"the exported PNGs or ProRes on your render in a video editor")
+    return comp, warning
