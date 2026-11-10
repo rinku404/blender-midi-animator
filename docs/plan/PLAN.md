@@ -18,20 +18,21 @@ Every agent reads **[AGENT_BRIEF.md](AGENT_BRIEF.md)** first.
 | 2 | Port "Hold the Instrument" to v1 | 1 | no | ✅ done ([report](reports/step-02-hold.md)) |
 | 3 | Verify the HUD in Blender's UI | 1 | run Blender with a window | ✅ done ([report](reports/step-03-hud-ui.md)) |
 | 4 | Finger quality: bend direction and an auto Rest pose | 2 | no | ✅ done ([report](reports/step-04-finger-quality.md)) |
-| 5 | Chart completion: F#6, and a check against the old chart | 1 | no | ⬜ todo |
+| 5 | Chart completion: F#6, and a check against the old chart | 1 | no | ✅ done ([report](reports/step-05-chart.md)) |
 | 6 | Real-rig trial with the user's character and take | 2, 3, 4, 5 | **yes** | ⬜ todo |
 | 7 | Fixes from the trial | 6 | maybe | ⬜ todo (scope set after 6) |
 | 8 | Robustness and performance on long takes | 6 | no | ⬜ todo |
 | 9 | Release v1.0.0 | 7, 8 | approve the merge | ⬜ todo |
 
 Statuses: ⬜ todo · 🔄 in progress · ✅ done · ⚠️ done with follow-ups · ⛔ blocked.
-Step 5 is the last step before the trial (step 6).
+Everything before the trial is done: step 6 is next.
 
 ## Revision log
 
 | Date | Change |
 |---|---|
 | 2026-11-07 | Plan created. Step 0 recorded as done. PR #2 (hold + per-finger chart on the old file) found on `main`: added steps 1–2 to reconcile and port it. |
+| 2026-11-09 | Step 5 done (PR #8): chart Bb3–F#6 (new `R1:HighF#`), low C# corrected to the standard fingering (six fingers + left pinky C#; the earlier "intentional" note was wrong). Step 6 gains marker placement for palm/side/high F# keys and asks the user to confirm low C# and F#6. Step 7 gains an optional candidate: alternate fingerings. |
 | 2026-11-08 | Step 3 done (PR #7): all four HUD paths work (24/24 checks). Fixed ProRes and composite colours (they were toned by AgX), composite offset at render % ≠ 100, and the cut-off Hold box. Composite under AgX/Filmic keeps the render exact and warns that the HUD is toned (user's choice, ADR 0009 note). Step 6 gains HUD checks in Resolve and under AgX; step 7 gains confirmed UI polish (other cut-off labels, preview hidden under the sidebar). |
 | 2026-11-07 | Step 4 done (PR #6): bend-only IK limits (0.000° against the axis), auto `F.Rest`, hand drift 7.9 → 0.000 mm. Step 6 now also depends on step 5 (a real take may reach F#6) and gains checks from step 4's report: tip-miss messages and the knuckle-extension constant, thumb bend axis, Rigify `upper_arm_fk` inherit scale. Step 7 gains a polish candidate: spread curl across joints. |
 | 2026-11-07 | Step 2 done (PR #5). Breathing conflict solved with option (b), a scale-free Child Of (ADR 0011), because (a) can't work. Added: step 4 task to remove the 7.9 mm hand drift under chest breathing; step 3 task to look at the Hold box in the UI; step 6 checks for hand accuracy and Rigify `hand_fk`. |
@@ -213,6 +214,9 @@ knuckle extension (one constant in `core/rigs.ik_joint_settings`, measured on th
 Detect lists the thumb as curling around another axis (it would need a per-finger Bend Axis override). Judge
 whether finger curls look natural or bend mostly one joint. From step 3: overlay the exported HUD on the real take in
 DaVinci Resolve, and try Make Composite Scene with the user's own (AgX) scene so they judge the toned HUD.
+From step 5: place the palm, side and `HighF#` markers on the real sax using the guide's *High notes* table and check
+R1's reach; ask the user (a sax player) to confirm the low C# and F#6 fingerings. If the user's `.blend` already has a
+C#4 note-map row from an earlier Fill, refill it with *Overwrite Existing*.
 
 **Report:** an issue table with columns #, area, what happened, expected, severity (blocker / bad / polish), and
 suggested fix. Severity ratings are needed because the planner turns this table into step 7.
@@ -232,7 +236,8 @@ Already confirmed (do regardless, from step 3): fix the remaining labels cut off
 preview avoid the sidebar (use the visible region width) or add a horizontal position option.
 Optional: a "Standard view" toggle on Make Composite Scene.
 
-Candidates already known (included only if the trial confirms them): knuckle extension allowance (~10°);
+Candidates already known (included only if the trial confirms them, or the user asks): alternate fingerings as
+per-note choices (front F, side Bb/C, bis Bb; step 5); knuckle extension allowance (~10°);
 per-finger Bend Axis override (thumb); spread curl across joints instead of bending mostly one (step 4 report).
 
 ---
