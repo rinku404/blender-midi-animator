@@ -24,7 +24,7 @@ Every agent reads **[AGENT_BRIEF.md](AGENT_BRIEF.md)** first.
 | 11 | Hands with fewer fingers (shared finger bones) | 4 | answer 2 questions | ⬜ todo |
 | 12 | Fingering trial: CJ playing the clarinet | 6, 10, 11 | **yes** | ⬜ todo |
 | 7 | Fixes from the trials | 6, 12 | maybe | ⬜ todo (scope set after 6 and 12) |
-| 8 | Robustness and performance on long takes | 6 | no | ⬜ todo |
+| 8 | Robustness and performance on long takes | 6, 12 | no | ⬜ todo |
 | 9 | Release v1.0.0 | 7, 8 | approve the merge | ⬜ todo |
 
 Statuses: ⬜ todo · 🔄 in progress · ✅ done · ⚠️ done with follow-ups · ⛔ blocked.
