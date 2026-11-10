@@ -1,89 +1,68 @@
-# Step 6 trial checklist
+# Step 6 trial checklist: pipeline on CJ + clarinet
 
-Walk one line at a time in Blender's UI. For each line the agent records **result** (ok / issue / skipped),
-a note, and a timing where marked ⏱. Expected results come from `docs/aerophone-guide.md`.
-Sections follow the guide.
+Target (ADR 0012): CJ (`carl_johnson_cj.glb`) playing a B♭ clarinet. **Pipeline only**: marker placement, Autoassign
+quality, Fill From Chart judgement, palm/side keys, thumb bend axis and curl naturalness are skipped (step 12).
 
-Files: character .blend, MIDI take, audio take (paths are recorded in the report).
+Files (copies; originals untouched), project `D:\3D\blender_projects\midi_trial\`:
+`midi_trial.blend`, `src\zelda_recorded_v1_b.mid`, `src\zelda_recorded_v1_B.wav`.
+Settings: **Transpose +2**, **HUD pitch display: Concert**.
+
+Each line records result (ok / issue / limit / skipped), a note, and a timing where marked ⏱.
+Findings go to one of two tables: **plugin issue** or **test-setup limit**.
 
 ## A. Load and analyze (guide §2)
 | # | Action | Expected |
 |---|---|---|
-| A1 | Open the character .blend; enable the extension if needed; open sidebar tab MIDI | Panels 1–6 visible |
-| A2 | Instrument = Monophonic Wind / Brass; choose the .mid; **Analyze MIDI** | Report lists tracks, note range, controllers incl. CC2 |
-| A3 | Pick the played track (dot) if several | Note count matches the take |
-| A4 | Note the lowest and highest written pitch in the report | Inside Bb3–F#6; if not, Transpose is needed |
-| A5 | **Fit Scene Range**, choose the WAV, **Add Audio** | Range matches the take; audio strip present |
+| A1 | Open `midi_trial.blend`, enable the extension, open sidebar tab MIDI | Panels 1–6 visible |
+| A2 | Instrument = Monophonic Wind / Brass; choose the .mid; **Analyze MIDI** | Tracks, 111 notes, MIDI 50–79, CC2 listed |
+| A3 | Set **Transpose = +2** | Written range E3–G6 (record how many notes fall outside the sax chart Bb3–F#6; expected/noted only) |
+| A4 | **Fit Scene Range**, choose the WAV, **Add Audio** | Range ≈ 54.4 s at 24 fps; audio strip present |
 
-## B. Fingers (guide §3, steps 1)
+## B. Detect Fingers on CJ (for step 11)
 | # | Action | Expected |
 |---|---|---|
-| B1 | Set Character Rig, **Detect Fingers** | All 10 fingers found (thumbs included); list the slots that are wrong |
-| B2 | Rig family: Rigify / Mixamo / VRoid / other? Record bone names for one finger | – |
-| B3 | Bend Axis after Detect; is the thumb's curl axis different from the fingers'? | One axis for four fingers; thumb may need a per-finger override (step 4 follow-up) |
+| B1 | Set Character Rig = CJ armature, **Detect Fingers**; record the message and which slots fill | Script prediction: nothing found (names `finger 1a_045` contain no thumb/index/… words) |
+| B2 | Fill one finger by hand (root → tip) from `arm left finger 2a/2b/2c`; record how the UI copes | Works |
+| B3 | **Detect** Bend Axis; record the result | – |
+| B4 | Which bone could act as a thumb? | `finger 1a-c` leaves the wrist toward -Y/-Z (thumb-like); `finger 2a-c` runs along the hand. Confirm by eye |
 
-## C. Hold the instrument (guide §3, step 2)
+## C. Hold the instrument (guide §3 step 2)
 | # | Action | Expected |
 |---|---|---|
-| C1 | Place the sax at the lips, angled down/right; pose both hands on it | Left hand on top, right below |
-| C2 | Set Instrument; **Guess Bones** | Strap bone = upper chest; hands = `hand_fk` on Rigify. Record what it guessed |
-| C3 | **Lock** | Targets `MIDI Hold L/R` appear; hands follow wherever the body moves |
-| C4 | Rigify only: toggle IK/FK switch on the arms | Lock does not fight the switch; record behaviour |
-| C5 | Rigify only: check `upper_arm_fk` Inherit Scale = None while locked; **Unlock** restores it | As described |
-| C6 | Hand accuracy: with Chest breathing active, measure/inspect drift of the hands vs. the sax | ~0 mm (step 4 measured 0.000 mm on the test rig) |
-| C7 | **Unlock**, then **Lock** again | Clean round trip |
+| C1 | Place the clarinet at CJ's lips, pointing down and forward; pose both hands on it | – |
+| C2 | Set Instrument; **Guess Bones**; record the guesses | Script prediction: strap `spine lower_011`, hands empty (names `wrist`, not `hand`) |
+| C3 | Pick Strap Bone (`spine upper_013`) and the two Hand bones (wrists) by hand | – |
+| C4 | **Lock** | Targets appear; hands follow when the body moves |
+| C5 | Rotate/move the spine; check the hands stay on the clarinet | Hands glued |
+| C6 | **Unlock**, then **Lock** again | Clean round trip |
 
-## D. Key markers (guide §3, step 3–4)
+## D. Blow (guide §5)
 | # | Action | Expected |
 |---|---|---|
-| D1 | ⏱ Place all markers for the keys the take uses (record count and total minutes) | One click per key; arrow points out of the key |
-| D2 | Place `HighF#`, `PalmD`, `PalmEb`, `PalmF`, `SideE` using the guide's table (if the take reaches them) | Markers exist for D6–F#6 |
-| D3 | Set Hover Height | Lifted fingers float at a believable height |
+| D1 | **Chest** preset on the chest/spine bone | Source CC2, Lung mode |
+| D2 | Cheeks: sculpt a `CheekPuff` shape key on the head (guide §3) or log as a test-setup limit | – |
+| D3 | Hand accuracy against the clarinet while the chest breathes (hands vs. targets, mm) | ~0 mm |
 
-## E. Autoassign (guide §3, step 5–7)
+## E. Bake and playback (guide §6)
 | # | Action | Expected |
 |---|---|---|
-| E1 | ⏱ **Autoassign Finger Poses** | Poses `F.<slot>.<key>.Down/Up` and `F.Rest` created; time recorded |
-| E2 | Record every status-bar message "fingertip … mm off" (finger, key, mm) | Ideally none; if misses, is the cause the knuckle needing to extend past rest (step 7 can allow ~10°)? |
-| E3 | Look at **every finger** (eye button on each Down and Up pose) | Fingertip on the key; no sideways twist; no backward bend |
-| E4 | Do curls look natural, or does only one joint bend? | Spread over joints; note if mostly one joint (step 7 polish candidate) |
-| E5 | F.Rest looks right (fingers hovering over home keys) | Becomes the Rest Pose |
+| E1 | ⏱ **Bake MIDI to Animation**; record the status line (unmapped notes with the sax chart are expected) | Tracks `MIDI: …` created |
+| E2 | Play with audio | Chest breath follows the real CC2 in time |
+| E3 | Inspect NLA | `MIDI: …` tracks; user action under `Base: …` |
 
-## F. Note map (guide §4)
+## F. HUD (guide §7)
 | # | Action | Expected |
 |---|---|---|
-| F1 | **Fill: This File**; click a few notes | Fingers/keys per row look right |
-| F2 | The player confirms: low C#4 fingering | Fixed in step 5 (was wrong in v1) |
-| F3 | The player confirms: F#6 (left `PalmF`, right `HighF#`) and D6–F6 | Matches the player's real fingering |
-| F4 | Fill: Whole Chart | Bb3–F#6 mapped |
+| F1 | Enable HUD preview; set pitch display **Concert**; scrub | Note names show concert pitch (lowest note D3) |
+| F2 | ⏱ **Export HUD** for 10 s (PNG + ProRes 4444) | Files written; record time and warnings |
+| F3 | Overlay the exported HUD on the take in DaVinci Resolve | Transparent, aligned |
+| F4 | **Make Composite Scene** with the user's AgX scene | Render exact; toned-HUD warning; the user judges |
 
-## G. Blow (guide §5)
-| # | Action | Expected |
-|---|---|---|
-| G1 | Select face mesh; **Cheeks** | `CheekPuff` shape key found (or message says why not) |
-| G2 | **Chest** | Chest bone found |
-| G3 | Source shows CC2 from the real take | No Use Velocity/Turn Off prompt |
-| G4 | Tune Attack / Release / Lung Capacity if needed (record values) | – |
-
-## H. Bake and playback (guide §6)
-| # | Action | Expected |
-|---|---|---|
-| H1 | ⏱ **Bake MIDI to Animation** | Status lists baked items and anything missing; record time |
-| H2 | Play the timeline with audio | Fingers match the notes in time with the sound |
-| H3 | Inspect NLA | `MIDI: …` tracks; your previous action under `Base: …` |
-| H4 | Cheeks puff and chest breathes with the blow | Visible, in time, not extreme |
-| H5 | Hands stay on the sax during the whole take | No drift |
-
-## I. HUD (guide §7)
-| # | Action | Expected |
-|---|---|---|
-| I1 | Enable HUD preview, scrub | Notes scroll; names correct (written vs concert) |
-| I2 | ⏱ **Export HUD** for 10 s (PNG, ProRes 4444) | Files written; record time and any warning |
-| I3 | Overlay the exported HUD on the real take in DaVinci Resolve | Transparent, correct colours, aligned |
-| I4 | **Make Composite Scene** with the user's own scene (AgX) | Render exact; warning about toned HUD; the user judges the look |
-
-## J. Overall
-| # | Question |
+## G. Wrap-up
+| # | Action |
 |---|---|
-| J1 | Anything awkward or confusing in the UI or the guide? |
-| J2 | Rate each issue found: blocker / bad / polish (the user confirms) |
+| G1 | Review the **Plugin issues** table with the user; confirm severities |
+| G2 | Review the **Test-setup limits** table |
+
+## Skipped (step 12)
+Marker placement, Autoassign, Fill From Chart judgement, palm/side keys, thumb bend axis, curl naturalness, sax F#6/C# checks.
