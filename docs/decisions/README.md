@@ -13,3 +13,4 @@ Why MIDI Animator v1 is built the way it is. Agreed 2026-11-06 (see also [../SPE
 - [0009. Note HUD: horizontal highway, one layout for preview and export](0009-note-hud.md)
 - [0010. Scope cuts for v1](0010-scope-cuts.md)
 - [0011. Hold the instrument: strap Child Of without scale, hands locked by IK](0011-hold-the-instrument.md)
+- [0012. Target: CJ playing a B♭ clarinet](0012-target-cj-and-clarinet.md)

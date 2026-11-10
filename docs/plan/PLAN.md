@@ -19,19 +19,24 @@ Every agent reads **[AGENT_BRIEF.md](AGENT_BRIEF.md)** first.
 | 3 | Verify the HUD in Blender's UI | 1 | run Blender with a window | ✅ done ([report](reports/step-03-hud-ui.md)) |
 | 4 | Finger quality: bend direction and an auto Rest pose | 2 | no | ✅ done ([report](reports/step-04-finger-quality.md)) |
 | 5 | Chart completion: F#6, and a check against the old chart | 1 | no | ✅ done ([report](reports/step-05-chart.md)) |
-| 6 | Real-rig trial with the user's character and take | 2, 3, 4, 5 | **yes** | ⬜ todo |
-| 7 | Fixes from the trial | 6 | maybe | ⬜ todo (scope set after 6) |
-| 8 | Robustness and performance on long takes | 6 | no | ⬜ todo |
+| 6 | Pipeline trial on CJ + clarinet (no fingering judgement) | 2, 3, 4, 5 | **yes** | 🔄 in progress |
+| 10 | Clarinet profile (B♭ Boehm chart) | 5 | no | ⬜ todo |
+| 11 | Hands with fewer fingers (shared finger bones) | 4 | answer 2 questions | ⬜ todo |
+| 12 | Fingering trial: CJ playing the clarinet | 6, 10, 11 | **yes** | ⬜ todo |
+| 7 | Fixes from the trials | 6, 12 | maybe | ⬜ todo (scope set after 6 and 12) |
+| 8 | Robustness and performance on long takes | 6, 12 | no | ⬜ todo |
 | 9 | Release v1.0.0 | 7, 8 | approve the merge | ⬜ todo |
 
 Statuses: ⬜ todo · 🔄 in progress · ✅ done · ⚠️ done with follow-ups · ⛔ blocked.
-Everything before the trial is done: step 6 is next.
+Steps 10 and 11 can run in parallel with each other and with step 6. Step numbers 10–12 were added after
+step 9 was written; follow the **Depends on** column, not the numbers, for the order.
 
 ## Revision log
 
 | Date | Change |
 |---|---|
 | 2026-11-07 | Plan created. Step 0 recorded as done. PR #2 (hold + per-finger chart on the old file) found on `main`: added steps 1–2 to reconcile and port it. |
+| 2026-11-10 | **Target changed** (user): the video is CJ (`carl_johnson_cj.glb`, 2 three-joint fingers per hand, no thumb, no CheekPuff) playing a **B♭ clarinet**, not a sax. Step 6 narrowed to the pipeline (fingering can't be judged on this setup yet). Added step 10 (clarinet profile), step 11 (rigs with fewer fingers) and step 12 (fingering trial). Transpose for the take is **+2** (B♭ clarinet: written = concert + 2; the take's lowest note, MIDI 50 = concert D3, is the clarinet's written E3), and the HUD shows **Concert** pitch so it displays the recorded notes. ADR 0012. Trial files: `D:\3D\blender_projects\midi_trial\` (`midi_trial.blend`, inputs in `src\`). |
 | 2026-11-09 | Step 5 done (PR #8): chart Bb3–F#6 (new `R1:HighF#`), low C# corrected to the standard fingering (six fingers + left pinky C#; the earlier "intentional" note was wrong). Step 6 gains marker placement for palm/side/high F# keys and asks the user to confirm low C# and F#6. Step 7 gains an optional candidate: alternate fingerings. |
 | 2026-11-08 | Step 3 done (PR #7): all four HUD paths work (24/24 checks). Fixed ProRes and composite colours (they were toned by AgX), composite offset at render % ≠ 100, and the cut-off Hold box. Composite under AgX/Filmic keeps the render exact and warns that the HUD is toned (user's choice, ADR 0009 note). Step 6 gains HUD checks in Resolve and under AgX; step 7 gains confirmed UI polish (other cut-off labels, preview hidden under the sidebar). |
 | 2026-11-07 | Step 4 done (PR #6): bend-only IK limits (0.000° against the axis), auto `F.Rest`, hand drift 7.9 → 0.000 mm. Step 6 now also depends on step 5 (a real take may reach F#6) and gains checks from step 4's report: tip-miss messages and the knuckle-extension constant, thumb bend axis, Rigify `upper_arm_fk` inherit scale. Step 7 gains a polish candidate: spread curl across joints. |
@@ -194,42 +199,120 @@ difference from PR #2's chart is documented.
 
 ---
 
-## Step 6: Real-rig trial with the user's character and take ⚑ user
+## Step 6: Pipeline trial on CJ + clarinet ⚑ user
 
-**Goal:** run the whole workflow on the user's real character, instrument and Aerophone take, and collect
-everything that's wrong or awkward.
+**Status note (2026-11-10):** in progress. The target is now CJ playing a B♭ clarinet (ADR 0012). CJ's hands have two
+fingers each and the plugin has no clarinet chart yet, so **this trial covers the pipeline only**. Fingering is judged
+in step 12, after steps 10 and 11.
 
-**How:** the agent drives and the user does the hands-on parts. The agent prepares
-`docs/plan/notes/trial-checklist.md` from `docs/aerophone-guide.md` (one line per action, with an
-expected result). The user goes through it in Blender's UI. The agent records the outcomes, screenshots
-and timings. The agent may also inspect the user's .blend from a script (bone names, marker count, poses).
+**Setup:** `D:\3D\blender_projects\midi_trial\midi_trial.blend` (24 fps, CJ + clarinet scaled to ~0.66 m). Inputs are copied
+to `midi_trial\src\` (`carl_johnson_cj.glb`, `clarinet_model_with_annotations.glb`, `zelda_recorded_v1_b.mid`, `zelda_recorded_v1_B.wav`).
+Originals in `D:\3D` and `D:\Music\Media` stay untouched. **Transpose +2**, HUD pitch display **Concert**.
 
-**Must cover:** Detect Fingers on the real rig, Hold lock, placing all markers (time it), Autoassign
-(look at every finger), Fill From Chart, blow effects with the real take's CC2, Bake, playback with audio,
-HUD preview, and export of 10 s. Also: the Hold box's bone guess on the real rig (Rigify gives
-`hand_fk`; check the lock doesn't fight Rigify's IK/FK switch, nor `upper_arm_fk`'s Inherit Scale change),
-and hand accuracy against the sax while breathing. From step 4: record every Autoassign "fingertip … mm off"
-message. If misses come from the knuckle needing to extend past rest, note it: step 7 can allow about 10° of
-knuckle extension (one constant in `core/rigs.ik_joint_settings`, measured on the Rigify metarig). Check whether
-Detect lists the thumb as curling around another axis (it would need a per-finger Bend Axis override). Judge
-whether finger curls look natural or bend mostly one joint. From step 3: overlay the exported HUD on the real take in
-DaVinci Resolve, and try Make Composite Scene with the user's own (AgX) scene so they judge the toned HUD.
-From step 5: place the palm, side and `HighF#` markers on the real sax using the guide's *High notes* table and check
-R1's reach; ask the user (a sax player) to confirm the low C# and F#6 fingerings. If the user's `.blend` already has a
-C#4 note-map row from an earlier Fill, refill it with *Overwrite Existing*.
+**How:** the agent prepares `docs/plan/notes/trial-checklist.md` from the guide (one line per action, with the expected
+result). The user does it in Blender's UI, and the agent records outcomes, screenshots and timings. The agent may
+inspect the .blend from a script.
 
-**Report:** an issue table with columns #, area, what happened, expected, severity (blocker / bad / polish), and
-suggested fix. Severity ratings are needed because the planner turns this table into step 7.
+**Must cover:** Analyze (tracks, CC2, range, unmapped notes with the sax chart are expected and only noted), Hold:
+guess and lock CJ's strap/hand bones with the clarinet at the lips, then breathing (hand accuracy against the clarinet),
+the Chest effect with the real CC2 (Lung mode), CheekPuff (the user sculpts one following guide section 3, or it's logged
+as a test-setup limit), Bake, playback with audio, HUD preview, export of 10 s, the HUD over the take in DaVinci Resolve,
+and Make Composite Scene with the user's AgX scene. **Also record for step 11:** what Detect Fingers does on CJ's
+`arm left finger 1a_045`-style bones, and which bone, if any, could act as a thumb.
+
+**Skip (deferred to step 12):** marker placement, Autoassign quality, Fill From Chart judgement, palm/side keys, thumb bend axis, curl naturalness.
+
+**Report:** two tables. **Plugin issues** (#, area, what happened, expected, severity blocker / bad / polish,
+suggested fix) become step 7. **Test-setup limits** (things caused by the assets: two-finger hands, missing CheekPuff,
+model scale, stray objects) are kept apart so they aren't mistaken for plugin bugs.
 
 **Acceptance criteria**
 - [ ] The checklist is fully walked or each skipped line has a reason.
-- [ ] The issue table is filled in, and the user confirmed the severities.
+- [ ] Both tables are filled in, and the user confirmed the severities.
 
 ---
 
-## Step 7: Fixes from the trial
+## Step 10: Clarinet profile (B♭ Boehm)
 
-The scope is set by the planner after step 6: each blocker or bad issue becomes a task here, or a step of its own if large.
+**Goal:** a second instrument in the dropdown, **B♭ Clarinet**, with a correct fingering chart for the user's take.
+
+**Tasks**
+1. Research the standard Boehm B♭ clarinet fingering chart from **at least two published sources** (list them in the
+   report). Write the chart in `core/profiles.py` as a new registered profile, keyed by **written** pitch like the sax chart.
+2. Slots and keys (adjust from the sources and justify in the report; keep one finger = one marker per key):
+   - `LT` left thumb: `Thumb` (the thumb hole/ring) and `Register`.
+   - `L1`: `L1` (hole/ring), plus the throat keys `A` and `G#` (the side of the index presses them).
+   - `L2`, `L3`: their holes/rings.
+   - `L4` left pinky: `E/B`, `F/C` (and `F#/C#`, `Ab/Eb` if the sources put them on the left).
+   - `R1`: `R1` hole/ring, plus side trill keys if a chart entry needs them (for example `Side4` for throat B♭ alternatives).
+   - `R2`, `R3`: holes/rings.
+   - `R4` right pinky: `E/B`, `F/C`, `F#/C#`, `Ab/Eb` (the standard choice per note is in the chart; one fingering per pitch).
+   - The right thumb only supports the instrument (no slot), as on the sax.
+3. Range: at least written **E3 (52) to C6 (84)**, plus the altissimo notes the user's take needs. Read
+   `zelda_recorded_v1_b.mid` with Transpose +2 to find them, and **ask the user before going above C6** if the
+   altissimo fingering choice matters to them.
+4. Throat tones (written G4, G#4, A4, B♭4) and the break (B4 = E3 fingering + Register) need care. Test them
+   explicitly. The clarion register is the chalumeau fingering + `Register` + 19 semitones, except where the sources differ.
+5. Add a `default_transpose` to profiles (sax 0, B♭ clarinet +2), applied when the user switches instrument if Transpose
+   is still at the previous profile's default. Guide: a clarinet section (markers on rings/holes, register key, throat keys).
+6. pytest: the whole range mapped, every key in its slot, the register key exactly where the sources say, and the
+   throat tones and break checked by value. The e2e test fills the clarinet chart on the test rig.
+
+**Acceptance criteria**
+- [ ] Sources listed, and every chart entry traceable to them (differences from a source explained).
+- [ ] Every written note in the take (with Transpose +2) is mapped; tests pass.
+
+---
+
+## Step 11: Hands with fewer fingers (shared finger bones)
+
+**Goal:** rigs like CJ (two three-joint fingers per hand, no clear thumb) still play convincingly. Several finger
+slots can share one bone chain.
+
+**Before coding, ask the user and record the answers:**
+1. On CJ, which slots should each of the two fingers stand for? Suggested: finger 1 = index (L1/R1), finger 2 =
+   middle + ring + pinky (L2–L4 / R2–R4). Thumb (LT): none, or the hand bone's own tilt?
+2. When the slots sharing a chain disagree (one presses, another lifts), which wins? Suggested: **pressing wins**, and the
+   chain goes to the marker of the **highest-priority pressing slot** (order: the slot listed first).
+
+**Tasks**
+1. Data model: a finger slot can say "uses the bones of slot X" (a `shares` field). Detect Fingers handles numbered
+   finger names such as `arm left finger 1a_045` (side from "left/right", order from the digit, joints from a/b/c), and
+   proposes the sharing above when it finds fewer than four fingers.
+2. Core (`core/fingering.py`): combine the shared slots' timelines into one timeline per bone chain with the rule from
+   question 2, with pytest tests (agreeing slots, disagreeing slots, one slot pressing a different key mid-note).
+3. Autoassign: solve each shared chain onto the markers of every slot that uses it (pose names stay per slot and key).
+4. A slot with no bones (for example LT on CJ) is skipped silently in Bake and Autoassign, and Analyze lists it once as "not animated".
+5. UI: a "Shares bones with" dropdown per finger in panel 2. Guide: a short section for low-finger rigs.
+6. ADR for shared slots (supersedes nothing; refines 0003).
+
+**Acceptance criteria**
+- [ ] pytest covers the combining rule; the e2e test builds a 2-finger hand, shares slots, autoassigns and bakes.
+- [ ] The user's answers are in the report.
+
+---
+
+## Step 12: Fingering trial: CJ playing the clarinet ⚑ user
+
+**Goal:** the fingering part of the trial, on the real target.
+
+**Must cover:** Detect Fingers and slot sharing on CJ, placing all clarinet markers (time it) with the clarinet held
+at the lips (from step 6), Autoassign (look at every finger; record every "fingertip … mm off" message), Fill From
+Chart with the clarinet profile and Transpose +2, Bake, and playback with audio. Judge: do the right fingers move on
+each note, do curls look natural or bend mostly one joint, does the register key/thumb read correctly, and does the
+knuckle need extension (step 4's 10° option). The user, who knows the take, confirms the fingerings of a few notes by eye.
+
+**Report:** the same two tables as step 6 (plugin issues, test-setup limits).
+
+**Acceptance criteria**
+- [ ] Every note in the take bakes with a mapped fingering (or the report says why not).
+- [ ] Both tables filled in, severities confirmed by the user.
+
+---
+
+## Step 7: Fixes from the trials
+
+The scope is set by the planner after steps 6 and 12: each blocker or bad issue becomes a task here, or a step of its own if large.
 
 Already confirmed (do regardless, from step 3): fix the remaining labels cut off in the default sidebar width
 ("Charact…" in panel 2, "Instrum…" in panel 1, the "Detect Fingers (or Analyze)…" hint); make the viewport HUD
