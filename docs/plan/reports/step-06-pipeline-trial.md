@@ -35,9 +35,9 @@ Things caused by the assets or the test file, not by the plugin.
 | S7 | File | `midi_trial.blend` was saved with `Object_6` in Edit Mode, and contains no test cube (the user's cube was not saved). | Script switched the object to Object Mode before editing. Nothing to delete. |
 
 ### S5: hand rebuild (setup change)
-Backup: `D:Dlender_projects\midi_trial\midi_trial_before_fingers.blend` (the file exactly as given).
+Backup: `D:\3D\blender_projects\midi_trial\midi_trial_before_fingers.blend` (the file exactly as given).
 Rebuilt by script in background Blender 5.2.3 (no Blender MCP was connected), always starting from the backup, so
-the result is reproducible. The scripts and the final parameters are kept in `D:Dlender_projects\midi_trial\scripts\`
+the result is reproducible. The scripts and the final parameters are kept in `D:\3D\blender_projects\midi_trial\scripts\`
 (`build.py`, `verify.py`, `rh.py`, `detect.py`, `final_params.json`). Everything is in the one body mesh `Object_6`.
 
 **Pass 1 (fingers, bones, weights):**
@@ -84,7 +84,7 @@ the result is reproducible. The scripts and the final parameters are kept in `D:
 - Detect Fingers (plugin, headless): "Found all 9 fingers; Bend Axis X"; slots LT, L1–L4, R1–R4 filled with the new bones;
   Detect (Bend Axis) also X, no finger on another axis. The thumb tip moves +Z when curled around its X: it curls around
   another axis, a step 12 topic.
-- Screenshots: `D:Dlender_projects\midi_trial\screenshots\` `sheet_rest.png`, `sheet_curl30.png`, `sheet_curl60.png`
+- Screenshots: `D:\3D\blender_projects\midi_trial\screenshots\` `sheet_rest.png`, `sheet_curl30.png`, `sheet_curl60.png`
   (front, top and side of both hands), plus the single views.
 
 ## Pending
