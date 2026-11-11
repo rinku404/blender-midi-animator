@@ -17,7 +17,7 @@ def sync_finger_slots(s):
     """Make s.fingers match the profile's slots (keeps bones already chosen)."""
     prof = state.profile(s)
     existing = {f.slot: f for f in s.fingers}
-    if [f.slot for f in s.fingers] == [sl.id for sl in prof.slots]:
+    if [(f.slot, f.label) for f in s.fingers] == [(sl.id, sl.label) for sl in prof.slots]:
         return
     saved = {k: ([b.bone for b in f.bones], f.up_pose) for k, f in existing.items()}
     s.fingers.clear()

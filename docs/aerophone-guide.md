@@ -13,12 +13,18 @@ breathes with its chest, and a note HUD you can lay over the video.
 ## 2. Load the MIDI
 
 **1. Instrument & MIDI**
-1. Instrument: **Monophonic Wind / Brass**.
+1. Instrument: **Monophonic Wind / Brass** (saxophone fingering) or **B♭ Clarinet** (Boehm
+   fingering, see [Clarinet keys](#clarinet-keys)).
 2. Choose the .mid file and click **Analyze MIDI**. The report lists the tracks, the notes the
    performer plays, the controllers found (look for CC2), and anything still missing.
 3. If the file has several tracks, click the dot next to the one you played.
-4. **Transpose:** the fingering chart uses *written* sax pitch. If the Aerophone is set to an alto
-   or tenor key, it may already send written pitch (0). If the fingers look shifted, set the difference in semitones here.
+4. **Transpose:** the fingering chart uses *written* pitch: the file's pitch plus Transpose.
+   Choosing an instrument sets its usual Transpose: **0** for the sax (if the Aerophone is set to an
+   alto or tenor key, it may already send written pitch) and **+2** for the B♭ clarinet (it sounds
+   a tone below what is written, so a recorded concert D3 is the clarinet's written E3). If you
+   changed Transpose yourself, switching instrument leaves it alone. If the fingers look shifted,
+   set the difference in semitones here. The HUD can still show the recorded notes: set its
+   Pitch to **Concert**.
 5. **Fit Scene Range**, then choose the WAV and **Add Audio**.
 
 ## 3. Fingers and keys
@@ -71,7 +77,9 @@ breathes with its chest, and a note HUD you can lay over the video.
 ## 4. Note map
 
 **3. Note Map**
-1. **Fill: This File** maps every note in the take from the built-in sax chart (**Fill: Whole Chart** maps Bb3–F#6, written).
+1. **Fill: This File** maps every note in the take from the instrument's built-in chart (**Fill: Whole Chart**
+   maps all of it: Bb3–F#6 for the sax, E3–C6 for the clarinet, written). Switched instrument? Fill again
+   with **Overwrite Existing** ticked (in the operator's redo panel), or the old instrument's rows stay.
 2. Click a note to see its fingers. Each finger row has `up` plus the keys it can press, so you can
    change any of them. Copy and paste fingerings between notes.
 3. **Whole-hand Pose:** use a pose asset for that note instead of the combination (a trill shape, a gesture).
@@ -103,6 +111,37 @@ Where to place each marker (on the instrument, arrow out of the key as usual):
 
 You only need markers for the notes you play: a key without a marker gets no poses, and Bake lists
 what is missing.
+
+### Clarinet keys
+
+The **B♭ Clarinet** chart is the standard Boehm fingering (17 keys, 6 rings), written E3–C6, one
+fingering per note. The right thumb only holds the instrument (under the thumb rest), so it has no
+slot. Place the markers like this (arrow out of the key or hole, as usual):
+
+| Finger | Keys | Where to place the marker | Used for (written) |
+|---|---|---|---|
+| L Thumb (`LT`) | `Hole` | on the thumb hole (ring) at the back, where the thumb pad closes it | E3–F4 |
+| | `Register` | where the thumb tip lands when it closes the hole **and** presses the register key above it | every clarion note, B4–C6 |
+| | `RegOnly` | on the register key with the thumb rolled up off the hole | throat A#4 (B♭4) only |
+| L Index (`L1`) | `Hole` | on the first left-hand hole | |
+| | `A` | on the throat A key above that hole (the index rolls up onto it) | A4, A#4 |
+| | `G#` | on the throat G# key beside that hole (the side of the index presses it) | G#4 |
+| L Middle, L Ring (`L2`, `L3`) | `Hole` | on their rings | |
+| L Pinky (`L4`) | `E/B`, `F/C`, `F#/C#` | on the left little-finger keys of those names | `E/B`: E3, B4; `F#/C#`: F#3, C#5 |
+| | `C#/G#` | on the C#/G# key at the top of the left little-finger keys | C#4, G#5 |
+| R Index (`R1`) | `Hole` | on its ring | |
+| | `Eb/Bb` | on the lowest side key, where the side of the right index presses it | D#4, A#5 |
+| R Middle, R Ring (`R2`, `R3`) | `Hole` | on their rings | |
+| R Pinky (`R4`) | `F/C`, `E/B`, `F#/C#` | on the right little-finger keys of those names | `F/C`: F3, C5 |
+| | `Ab/Eb` | on the Ab/Eb key, the top right little-finger key | G#3, D#5 |
+
+- **The break:** the clarion register is the low (chalumeau) fingering plus the register key, a
+  twelfth (19 semitones) higher: B4 is E3's fingering with `LT:Register`, C6 is F4's.
+- **Throat tones:** from F#4 to A#4 the thumb leaves its hole. G4 is open (no finger down), G#4 and A4
+  use the throat keys, and A#4 adds the register key alone (`RegOnly`).
+- **Little fingers:** E/B, F/C and F#/C# exist on both hands. The chart plays E/B and F#/C# with the left
+  pinky and F/C with the right, so B4 → C5 → C#5 alternates hands. For the other hand, change that finger in
+  the note map and place a marker for that key.
 
 ## 5. Blow
 

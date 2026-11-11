@@ -14,10 +14,22 @@ from bpy.props import (
 
 from ..core import hud as core_hud
 from ..core import profiles
+from . import rig
 
 
 def _profile_items(self, context):
     return [(p.id, p.name, p.description) for p in profiles.REGISTRY.values()]
+
+
+def _profile_update(self, context):
+    """The new instrument brings its default Transpose, unless the user changed Transpose
+    away from the previous instrument's default. Listed finger slots take the new labels."""
+    old, new = profiles.get(self.transpose_profile), profiles.get(self.profile)
+    if self.transpose == old.default_transpose:
+        self.transpose = new.default_transpose
+    self.transpose_profile = new.id
+    if self.fingers:
+        rig.sync_finger_slots(self)
 
 
 def _poll_armature(self, obj):
@@ -205,7 +217,9 @@ class MIDIANIM_Hud(bpy.types.PropertyGroup):
 
 
 class MIDIANIM_Settings(bpy.types.PropertyGroup):
-    profile: EnumProperty(name="Instrument", items=_profile_items)
+    profile: EnumProperty(name="Instrument", items=_profile_items, update=_profile_update)
+    # The instrument whose default Transpose is in effect ("" = the first one, the sax)
+    transpose_profile: StringProperty(default="", options={"HIDDEN"})
 
     midi_path: StringProperty(name="MIDI File", subtype="FILE_PATH")
     audio_path: StringProperty(name="Audio File", subtype="FILE_PATH")

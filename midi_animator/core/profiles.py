@@ -47,6 +47,7 @@ class Profile:
     slots: tuple = ()
     chart: dict = field(default_factory=dict)    # written pitch -> {slot_id: key}
     presets: tuple = ()
+    default_transpose: int = 0                   # semitones from the file's (concert) pitch to written
 
     def slot(self, slot_id):
         return next((s for s in self.slots if s.id == slot_id), None)
@@ -139,6 +140,18 @@ def _sax_chart():
     return chart
 
 
+WIND_PRESETS = (
+    EffectPreset("CHEEKS", "Cheeks", "SHAPE_KEY", mode="DIRECT", shape_key="CheekPuff",
+                 out_min=0.0, out_max=1.0, attack=0.04, release=0.15, curve=0.8,
+                 blend="REPLACE"),
+    EffectPreset("CHEST", "Chest", "BONE", mode="LUNG",
+                 bone_keywords=("chest", "spine2", "spine.003", "upperchest", "upper_chest",
+                                "j_bip_c_upperchest", "spine1", "spine"),
+                 channel="SCALE_XZ", out_min=0.0, out_max=0.04, attack=0.15, release=0.4,
+                 blend="COMBINE"),
+)
+
+
 @register
 def monophonic_wind():
     return Profile(
@@ -148,14 +161,87 @@ def monophonic_wind():
         monophonic=True,
         slots=SAX_SLOTS,
         chart=_sax_chart(),
-        presets=(
-            EffectPreset("CHEEKS", "Cheeks", "SHAPE_KEY", mode="DIRECT", shape_key="CheekPuff",
-                         out_min=0.0, out_max=1.0, attack=0.04, release=0.15, curve=0.8,
-                         blend="REPLACE"),
-            EffectPreset("CHEST", "Chest", "BONE", mode="LUNG",
-                         bone_keywords=("chest", "spine2", "spine.003", "upperchest", "upper_chest",
-                                        "j_bip_c_upperchest", "spine1", "spine"),
-                         channel="SCALE_XZ", out_min=0.0, out_max=0.04, attack=0.15, release=0.4,
-                         blend="COMBINE"),
-        ),
+        presets=WIND_PRESETS,
+    )
+
+
+# ---------------------------------------------------------------------------
+# B♭ clarinet — Boehm system (17 keys, 6 rings)
+# ---------------------------------------------------------------------------
+
+CLARINET_SLOTS = (
+    FingerSlot("LT", "L Thumb (register)", "L", "thumb", ("Hole", "Register", "RegOnly")),
+    FingerSlot("L1", "L Index", "L", "index", ("Hole", "A", "G#")),
+    FingerSlot("L2", "L Middle", "L", "middle", ("Hole",)),
+    FingerSlot("L3", "L Ring", "L", "ring", ("Hole",)),
+    FingerSlot("L4", "L Pinky", "L", "pinky", ("E/B", "F/C", "F#/C#", "C#/G#")),
+    FingerSlot("R1", "R Index", "R", "index", ("Hole", "Eb/Bb")),
+    FingerSlot("R2", "R Middle", "R", "middle", ("Hole",)),
+    FingerSlot("R3", "R Ring", "R", "ring", ("Hole",)),
+    FingerSlot("R4", "R Pinky", "R", "pinky", ("F/C", "E/B", "F#/C#", "Ab/Eb")),
+)
+
+
+def _clarinet_chart():
+    """Boehm B♭ clarinet fingerings by written pitch, E3 .. C6 (52 .. 84). Each entry lists
+    only the fingers that press a key; every other finger is up.
+
+    One fingering per pitch: the first ("Basic") fingering of the Woodwind Fingering Guide's
+    Boehm chart (wfg.woodwind.org/clarinet), which agrees with J. M. Izen's chromatic chart and
+    with Powell's little-finger key chart (Oxford University Press, ch. 34).
+
+    Keys:
+    - "Hole" is the tone hole or ring a finger closes.
+    - Left thumb: "Register" = the thumb closes its hole *and* presses the register key (every
+      clarion note); "RegOnly" = the register key with the thumb hole open (throat A#4 only).
+    - Left index: "A" and "G#" are the throat keys (rolled onto with the index).
+    - Right index: "Eb/Bb" is the lowest side key (D#4, A#5), pressed with the side of the finger.
+    - Little fingers: E/B, F/C and F#/C# exist on both hands. The chart uses E/B and F#/C# on
+      the left and F/C on the right, as the guide lists them first, so B4 - C5 - C#5 alternates
+      hands. C#/G# is left only, Ab/Eb right only (standard 17-key instrument).
+    """
+    th = {"LT": "Hole"}
+    lh = {**th, "L1": "Hole", "L2": "Hole", "L3": "Hole"}
+    full = {**lh, "R1": "Hole", "R2": "Hole", "R3": "Hole"}
+    low = {
+        "E3": {**full, "L4": "E/B"},
+        "F3": {**full, "R4": "F/C"},
+        "F#3": {**full, "L4": "F#/C#"},
+        "G3": dict(full),
+        "G#3": {**full, "R4": "Ab/Eb"},
+        "A3": {**lh, "R1": "Hole", "R2": "Hole"},
+        "A#3": {**lh, "R1": "Hole"},
+        "B3": {**lh, "R2": "Hole"},
+        "C4": dict(lh),
+        "C#4": {**lh, "L4": "C#/G#"},
+        "D4": {**th, "L1": "Hole", "L2": "Hole"},
+        "D#4": {**th, "L1": "Hole", "L2": "Hole", "R1": "Eb/Bb"},
+        "E4": {**th, "L1": "Hole"},
+        "F4": dict(th),
+        # The thumb leaves its hole from F#4 up to the break (F#4 and the throat tones G4 .. A#4)
+        "F#4": {"L1": "Hole"},
+        "G4": {},
+        "G#4": {"L1": "G#"},
+        "A4": {"L1": "A"},
+        "A#4": {"LT": "RegOnly", "L1": "A"},
+    }
+    chart = {parse_note_name(k): v for k, v in low.items()}
+    # Clarion: the register key overblows a twelfth, so written B4 .. C6 is E3 .. F4 plus the
+    # register key (the thumb stays on its hole), 19 semitones up. B4 is the break.
+    for p in range(parse_note_name("E3"), parse_note_name("F4") + 1):
+        chart[p + 19] = {**chart[p], "LT": "Register"}
+    return chart
+
+
+@register
+def clarinet_bb():
+    return Profile(
+        id="CLARINET_BB",
+        name="B♭ Clarinet",
+        description="Boehm-system B♭ clarinet fingering; written pitch = concert + 2",
+        monophonic=True,
+        slots=CLARINET_SLOTS,
+        chart=_clarinet_chart(),
+        presets=WIND_PRESETS,
+        default_transpose=2,
     )
