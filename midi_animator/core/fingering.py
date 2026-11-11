@@ -102,6 +102,56 @@ def build_timeline(notes, mapping, slots, homes, params):
     return Timeline(keys, missing, len(playable))
 
 
+def merge_shared(keys, groups):
+    """Combine the timelines of finger slots that share one bone chain.
+
+    keys: {slot: [(frame, state)]} from build_timeline. groups: {owner: [slot, ...]}: the slots
+    that use the owner's bones, in priority order (the slot listed first wins). Slots in no
+    group pass through unchanged.
+
+    Returns {owner: [(frame, slot, state)]}: the chain follows `slot`'s pose for `state`.
+    Pressing wins: while any slot of the group presses, the chain is at the Down pose of the
+    first listed pressing slot. While none presses, it follows the slot that pressed last (at
+    the start, the first listed), so it hovers over the key it left, or rests with the hand."""
+    sharers = {sl for group in groups.values() for sl in group}
+    out = {}
+    for slot, lst in keys.items():
+        if slot not in sharers:
+            out[slot] = [(f, slot, st) for f, st in lst]
+    for owner, group in groups.items():
+        group = [sl for sl in group if sl in keys]
+        if not group:
+            continue
+        frames = sorted({f for sl in group for f, _ in keys[sl]})
+        own_frames = {sl: {f for f, _ in keys[sl]} for sl in group}
+
+        def state_at(sl, frame):
+            lst = keys[sl]
+            st = lst[0][1] if lst else REST
+            for kf, ks in lst:
+                if kf > frame:
+                    break
+                st = ks
+            return st
+
+        chosen, last = [], group[0]
+        for f in frames:
+            pressing = [sl for sl in group if state_at(sl, f)[0] == "down"]
+            if pressing:
+                last = pressing[0]
+            chosen.append((f, last, state_at(last, f)))
+        # keep the chosen slot's own keys (they carry its hold/arrive timing) and a key on both
+        # sides of a switch between slots, so a switch moves over the same frames as the slot would
+        merged = []
+        for i, (f, sl, st) in enumerate(chosen):
+            switch = ((i > 0 and chosen[i - 1][1] != sl)
+                      or (i + 1 < len(chosen) and chosen[i + 1][1] != sl))
+            if i == 0 or f in own_frames[sl] or switch:
+                merged.append((f, sl, st))
+        out[owner] = merged
+    return out
+
+
 def combination_label(combination, slots):
     """Compact text for UI lists, e.g. 'LT L1 L2 L3 | R1 R4:LowC'. slots: FingerSlot list.
     A finger on its home key shows just the slot id; on another key 'slot:key'."""

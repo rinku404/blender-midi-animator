@@ -62,6 +62,32 @@ def bone_channels(pb):
     return out
 
 
+def rotation_channels(owner, base_path="", tilt=None):
+    """{(data_path, index): value} of the rotation of `owner` (a pose bone or an object), as it
+    is now or, with tilt = (axis index, radians), turned that much around its own local axis.
+    base_path: 'pose.bones["name"]' for a bone, "" for an object."""
+    from mathutils import Matrix, Quaternion, Vector
+    mode = owner.rotation_mode
+    if mode == "AXIS_ANGLE":
+        raise ValueError(f"'{owner.name}' uses Axis Angle rotation; switch it to Euler or Quaternion")
+    axis = None
+    if tilt is not None:
+        axis = Vector((0.0, 0.0, 0.0))
+        axis[tilt[0]] = 1.0
+    if mode == "QUATERNION":
+        q = owner.rotation_quaternion.copy()
+        if axis is not None:
+            q = q @ Quaternion(axis, tilt[1])
+        prop, values = "rotation_quaternion", q
+    else:
+        e = owner.rotation_euler.copy()
+        if axis is not None:
+            e = (e.to_matrix() @ Matrix.Rotation(tilt[1], 3, axis)).to_euler(mode, e)
+        prop, values = "rotation_euler", e
+    path = f"{base_path}.{prop}" if base_path else prop
+    return {(path, i): float(v) for i, v in enumerate(values)}
+
+
 def build_action(owner, name, channels, interpolation="BEZIER", fake_user=False, replace=False):
     """Create an action for `owner` (Object or Key) with channels
     [(data_path, index, [(frame, value), ...]), ...]. The owner's active action is restored."""

@@ -30,8 +30,16 @@ class MIDIANIM_UL_fingers(bpy.types.UIList):
         s = state.settings(context)
         row = layout.row(align=True)
         row.label(text=item.label)
+        if item.shares:
+            owner = next((f.label for f in s.fingers if f.slot == item.shares), item.shares)
+            ok = item.slot in rig.finger_bones(s)
+            row.label(text=f"→ {owner}", icon="CHECKMARK" if ok else "ERROR")
+            return
         ok = [b.bone for b in item.bones if b.bone and s.rig and b.bone in s.rig.pose.bones]
-        row.label(text=f"{len(ok)} bones" if ok else "no bones", icon="CHECKMARK" if ok else "ERROR")
+        if ok and item.tilt:
+            row.label(text=f"tilt {item.tilt:g}°", icon="CHECKMARK")
+        else:
+            row.label(text=f"{len(ok)} bones" if ok else "no bones", icon="CHECKMARK" if ok else "ERROR")
 
 
 class MIDIANIM_UL_effects(bpy.types.UIList):
@@ -118,15 +126,25 @@ class MIDIANIM_PT_fingers(MIDIANIM_PT_base, bpy.types.Panel):
         slot = state.profile(s).slot(f.slot)
 
         box = layout.box()
-        box.label(text=f"{f.label}: bones root → tip", icon="BONE_DATA")
-        for i, b in enumerate(f.bones):
-            r = box.row(align=True)
-            if s.rig:
-                r.prop_search(b, "bone", s.rig.data, "bones", text="")
-            else:
-                r.prop(b, "bone", text="")
-            r.operator("midianim.finger_bone_remove", text="", icon="X").index = i
-        box.operator("midianim.finger_bone_add", icon="ADD")
+        _labeled(box, "Shares Bones With").prop(f, "shares_ui", text="")
+        if f.shares:
+            owner = next((g.label for g in s.fingers if g.slot == f.shares), f.shares)
+            col = box.column(align=True)
+            col.label(text=f"Moves {owner}'s bones for its own keys.", icon="INFO")
+            col.label(text="Pressing wins; the finger listed first wins.", icon="BLANK1")
+        else:
+            box.label(text=f"{f.label}: bones root → tip", icon="BONE_DATA")
+            for i, b in enumerate(f.bones):
+                r = box.row(align=True)
+                if s.rig:
+                    r.prop_search(b, "bone", s.rig.data, "bones", text="")
+                else:
+                    r.prop(b, "bone", text="")
+                r.operator("midianim.finger_bone_remove", text="", icon="X").index = i
+            box.operator("midianim.finger_bone_add", icon="ADD")
+            _labeled(box, "Press Tilt (°)").prop(f, "tilt", text="")
+            if f.tilt:
+                box.label(text="No markers: Down turns the first bone", icon="INFO")
         box.prop(f, "up_pose")
 
         box = layout.box()
