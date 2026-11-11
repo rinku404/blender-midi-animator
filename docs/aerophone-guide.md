@@ -31,7 +31,8 @@ breathes with its chest, and a note HUD you can lay over the video.
 ## 3. Fingers and keys
 
 **2. Fingers & Keys**
-1. Set **Character Rig** and click **Detect Fingers**. Rigify, Mixamo and VRoid names are recognised.
+1. Set **Character Rig** and click **Detect Fingers**. Rigify, Mixamo and VRoid names are recognised,
+   and numbered fingers such as `arm left finger 1a` (see *Hands with fewer fingers* below).
    Fix any finger by picking its bones (root → tip). Detect Fingers also sets the **Bend Axis**
    (in the Autoassign box) from the way the fingers curl at rest; see step 5.
 2. **Hold the instrument.** A real sax hangs from a neck strap at chest height, angled down and to
@@ -77,6 +78,32 @@ breathes with its chest, and a note HUD you can lay over the video.
    asset. The pose locks itself and Autoassign won't overwrite it. You can also toggle the lock
    by hand, or tick **Overwrite Locked** to regenerate everything.
 7. Optional: give a finger an authored **Up Pose** instead of hovering.
+
+### Hands with fewer fingers
+
+A cartoon hand with two or three fingers and no thumb (CJ's original rig: `arm left finger 1a…1c`,
+`2a…2c`) still plays. Each finger slot of the chart stays, but several slots can move one bone chain:
+
+- **Detect Fingers** reads numbered names (the side from *left*/*right*, the finger from the digit, the
+  joints from the hierarchy). With five numbered fingers, 1 is the thumb; with fewer, 1 is the index and
+  the hand has no thumb. A finger the hand doesn't have **shares** the bones of the nearest found finger
+  before it: on a two-finger hand, finger 1 = **L Index**, finger 2 = **L Middle + L Ring + L Pinky**
+  (same on the right). The status bar says what was proposed.
+- **Shares Bones With** (per finger, panel 2) is where you change it. A sharing finger keeps its own
+  keys, markers and poses (`F.L3.G.Down` is solved with the middle finger's bones onto `Key.L3.G`), so
+  place its markers like any other finger's.
+- When two slots on one chain disagree, **pressing wins**: the chain goes to the key of the pressing
+  slot, and when both press, to the key of the slot **listed first** (middle before ring before pinky).
+  When neither presses, it hovers over the key it left last.
+- **The thumb** (`LT`: octave key, or the clarinet's thumb hole and register key) has no bone on such a
+  hand, so Detect Fingers gives it the **hand bone** with a **Press Tilt** of 3°: whenever a thumb key is
+  down, the whole hand turns 3° around the Bend Axis towards the keys, the squeeze a thumb press makes.
+  It needs no markers. Change the angle in the finger's box (negative if the hand tilts away from the
+  instrument on your rig; 0 turns the slot back into a normal IK finger), or set the slot's bones to
+  nothing to leave it still. With **Lock** on, the hand's rotation comes from its hold target, so Bake
+  keys the tilt on `MIDI Hold L` as well, and the hand still tilts (the wrist stays on the instrument).
+- A slot with no bones at all is skipped by Autoassign and Bake; **Analyze** lists it once as
+  *Not animated*.
 
 ## 4. Note map
 
@@ -188,7 +215,8 @@ Export needs Blender's UI (it draws with the GPU), not `blender -b`.
 ## Troubleshooting
 
 - **The sax drifts away from the hands:** use **Lock** in the Hold box. Parenting it to the Armature object or to one hand doesn't keep both hands on it.
-- **A finger doesn't move:** check its bones in panel 2 and that its markers exist, then run Autoassign. Bake lists missing poses.
+- **A finger doesn't move:** check its bones (or **Shares Bones With**) in panel 2 and that its markers exist, then run Autoassign. Bake lists missing poses; Analyze lists slots with no bones as *Not animated*.
+- **The hand tilts the wrong way on thumb keys:** negate the thumb slot's **Press Tilt** (its sign follows the Bend Axis, which is read from the fingers, not the hand).
 - **The fingertip misses the key:** move the marker and run Autoassign again (unlock the pose if you edited it). If the status bar says "fingertip … mm off", check the **Bend Axis**.
 - **Fingers bend backwards or sideways:** the **Bend Axis** is wrong for this rig. Click **Detect**, or pick it by hand, and run Autoassign with **Overwrite Locked**.
 - **Wrong notes fingered:** adjust **Transpose**.

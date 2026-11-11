@@ -35,10 +35,11 @@ blender --command extension validate midi_animator                   # manifest 
 ```
 New logic goes in `core/` with a pytest test whenever it doesn't need Blender.
 
-## Status (2026-11-10)
-- `core/`: done, 49 tests passing (sax chart Bb3–F#6 since step 5; B♭ clarinet profile, Boehm chart
-  E3–C6 and default Transpose +2, since step 10).
-- `blender/`: `tests/test_in_blender.py` passes in Blender 5.2.3 (2026-11-10, sax and clarinet), and the built
+## Status (2026-11-11)
+- `core/`: done, 58 tests passing (sax chart Bb3–F#6 since step 5; B♭ clarinet profile, Boehm chart
+  E3–C6 and default Transpose +2, since step 10; shared finger slots, numbered fingers and the thumb
+  tilt since step 11).
+- `blender/`: `tests/test_in_blender.py` passes in Blender 5.2.3 (2026-11-11, sax, clarinet and a two-finger hand), and the built
   extension installs and enables. The HUD (viewport preview, PNG export, ProRes 4444 with alpha,
   composite scene) passes `tests/test_hud_in_ui.py` in Blender 5.2.3 with a window (2026-11-07, step 3).
   The composite copies the scene's view transform; under AgX/Filmic the HUD colours are toned (warned).
@@ -46,6 +47,7 @@ New logic goes in `core/` with a pytest test whenever it doesn't need Blender.
 
 ## Conventions
 - Generated finger poses: `F.<slot>.<key>.Down|Up` and `F.Rest` (pose assets). Key markers: Empties named
-  `Key.<slot>.<key>` with custom props `midianim_slot` / `midianim_key`.
+  `Key.<slot>.<key>` with custom props `midianim_slot` / `midianim_key`. A slot may share another slot's
+  bones (`FingerBones.shares`) or be a hand tilt (`FingerBones.tilt`, degrees); names stay per slot.
 - Baked data: actions prefixed `MIDI_`, NLA tracks `MIDI: …`; the user's action goes to `Base: …`.
 - Written pitch = file pitch + Transpose. Charts and the note map use written pitch.

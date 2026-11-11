@@ -74,6 +74,31 @@ class MIDIANIM_BoneRef(bpy.types.PropertyGroup):
     bone: StringProperty(name="Bone")
 
 
+_SHARES_ITEMS = []      # kept alive: Blender needs a reference to dynamic enum item strings
+
+
+def _shares_items(self, context):
+    s = context.scene.midi_animator if context else None
+    items = [("NONE", "Own bones", "This finger has its own bone chain", 0)]
+    for i, f in enumerate(s.fingers if s else ()):
+        if f.slot != self.slot and not f.shares:
+            items.append((f.slot, f.label, f"Move {f.label}'s bones for this finger's keys", i + 1))
+    _SHARES_ITEMS[:] = items
+    return _SHARES_ITEMS
+
+
+def _shares_get(self):
+    for ident, _, _, num in _shares_items(self, bpy.context):
+        if ident == (self.shares or "NONE"):
+            return num
+    return 0
+
+
+def _shares_set(self, value):
+    ident = next((it[0] for it in _shares_items(self, bpy.context) if it[3] == value), "NONE")
+    self.shares = "" if ident == "NONE" else ident
+
+
 class MIDIANIM_FingerBones(bpy.types.PropertyGroup):
     slot: StringProperty()
     label: StringProperty()
@@ -81,6 +106,19 @@ class MIDIANIM_FingerBones(bpy.types.PropertyGroup):
     up_pose: PointerProperty(
         name="Up Pose", type=bpy.types.Action, poll=_poll_pose_asset,
         description="Optional authored Up pose for this finger. Empty = hover over the key")
+    # Hands with fewer fingers: this slot moves another slot's bones (its id), "" = its own bones
+    shares: StringProperty(options={"HIDDEN"})
+    shares_ui: EnumProperty(
+        name="Shares Bones With", items=_shares_items, get=_shares_get, set=_shares_set,
+        description="On a hand with fewer fingers, play this finger's keys with another finger's "
+                    "bones. Its markers and poses stay its own; when both press, the finger listed "
+                    "first wins")
+    tilt: FloatProperty(
+        name="Press Tilt", default=0.0, min=-45.0, max=45.0, step=50, precision=1,
+        description="Degrees. 0 = solve the bones onto the key markers (IK). Otherwise pressing any "
+                    "key of this finger turns its first bone this far around the Bend Axis, with no "
+                    "markers: a thumb standing in as the hand's own tilt on a hand without a thumb "
+                    "bone. Negative tilts the other way")
 
 
 class MIDIANIM_NoteMapping(bpy.types.PropertyGroup):

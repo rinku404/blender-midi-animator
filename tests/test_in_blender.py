@@ -5,7 +5,9 @@
 Builds a small rig with Rigify-style finger names (fingers curled a little downwards at rest),
 an instrument with key markers and a face with a CheekPuff shape key; then Detect Fingers ->
 Autoassign -> Fill From Chart -> blow effects -> Bake, and checks the result. Then it switches
-to the B-flat clarinet profile and runs markers -> Autoassign -> Fill -> Bake again.
+to the B-flat clarinet profile and runs markers -> Autoassign -> Fill -> Bake again. Finally it
+builds a two-finger hand (CJ-style numbered bones, no thumb) and checks shared finger slots and
+the thumb tilt (step 11).
 """
 import math
 import os
@@ -13,7 +15,7 @@ import sys
 import traceback
 
 import bpy
-from mathutils import Vector
+from mathutils import Quaternion, Vector
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 sys.path.insert(0, ROOT)
@@ -26,9 +28,19 @@ CURL = math.radians(8)        # rest curl per joint (downwards): the test rig's 
 FINGERS = [("thumb", "L", -0.06), ("f_index", "L", -0.02), ("f_middle", "L", 0.0), ("f_ring", "L", 0.02),
            ("f_pinky", "L", 0.04), ("f_index", "R", -0.02), ("f_middle", "R", 0.0), ("f_ring", "R", 0.02),
            ("f_pinky", "R", 0.04)]
+# A two-finger hand like CJ's original rig: numbered fingers, joints a/b/c, no thumb
+FINGERS2 = [("1", "L", -0.02), ("2", "L", 0.02), ("1", "R", -0.02), ("2", "R", 0.02)]
 
 
-def build_scene():
+def rigify_name(name, i, side):
+    return f"{name}.0{i}.{side}"
+
+
+def cj_name(name, i, side):
+    return f"arm {'left' if side == 'L' else 'right'} finger {name}{'abc'[i - 1]}_0{40 + 3 * int(name) + i}"
+
+
+def build_scene(fingers=FINGERS, bone_name=rigify_name):
     bpy.ops.wm.read_factory_settings(use_empty=True)
     scene = bpy.context.scene
     scene.render.fps = 24
@@ -52,12 +64,12 @@ def build_scene():
         hand = eb.new(f"hand.{side}")
         hand.head, hand.tail, hand.parent = (x, 0, 1.3), (x, 0.1, 1.3), fore
         hand.use_connect = True
-        for name, s, z in FINGERS:
+        for name, s, z in fingers:
             if s != side:
                 continue
             parent, head = hand, Vector((x, 0.1, 1.3 + z))
             for i in range(1, 4):
-                b = eb.new(f"{name}.0{i}.{side}")
+                b = eb.new(bone_name(name, i, side))
                 a = CURL * (i - 1)
                 b.head, b.tail = head, head + Vector((0, math.cos(a), -math.sin(a))) * 0.03
                 b.roll = 0.0
@@ -92,11 +104,16 @@ def place_markers(s, arm):
     prof = state.profile(s)
     ctx = bpy.context
     ctx.view_layer.update()
+    bones, tilt = rig.finger_bones(s), rig.tilt_slots(s)
+    users = {sl: group for group in rig.share_groups(s).values() for sl in group}
     for slot in prof.slots:
-        chain = rig.finger_bones(s)[slot.id]
+        if slot.id in tilt or slot.id not in bones:
+            continue
+        chain = bones[slot.id]
         tip = arm.matrix_world @ arm.pose.bones[chain[-1]].tail
+        dx = 0.004 * users[slot.id].index(slot.id)     # slots sharing a chain: keys side by side
         for k, key in enumerate(slot.keys):
-            ctx.scene.cursor.location = tip + Vector((0.003 * k, -0.02, -0.03))
+            ctx.scene.cursor.location = tip + Vector((0.003 * k + dx, -0.02, -0.03))
             ctx.scene.cursor.rotation_euler = (0, 0, 0)
             rig.add_marker(ctx, s, slot.id, key)
 
@@ -343,6 +360,155 @@ def clarinet_checks(scene, s, arm):
     print("clarinet checks passed")
 
 
+def two_finger_checks():
+    """Step 11: a two-finger hand (CJ-style numbered bones, no thumb). Detect Fingers proposes the
+    sharing (finger 1 = index, finger 2 = middle + ring + pinky) and the thumb as the hand's tilt;
+    the proposal survives both sync paths; shared slots autoassign onto their own markers with the
+    shared chain and bake with "pressing wins"; the tilt bakes on the hand, and on the hold target
+    while Lock is on."""
+    scene, arm, sax, _ = build_scene(FINGERS2, cj_name)
+    s = scene.midi_animator
+    s.midi_path, s.rig, s.instrument = MID, arm, sax
+    pb = arm.pose.bones
+
+    def finger(slot):
+        return next(f for f in s.fingers if f.slot == slot)
+
+    # 1. Detect: numbered names, sharing and the thumb tilt proposed
+    s.bend_axis = "X"
+    assert bpy.ops.midianim.detect_fingers() == {"FINISHED"}
+    assert s.bend_axis == "-X", s.bend_axis
+    bones = rig.finger_bones(s)
+    assert bones["L1"] == ["arm left finger 1a_044", "arm left finger 1b_045", "arm left finger 1c_046"], bones
+    assert bones["L3"] is bones["L2"] and bones["L4"] is bones["L2"] and bones["R4"] is bones["R2"], bones
+    assert finger("L3").shares == "L2" and finger("L4").shares == "L2" and finger("R3").shares == "R2"
+    assert finger("L1").shares == "" and len(finger("L3").bones) == 0
+    assert bones["LT"] == ["hand.L"] and finger("LT").tilt == 3.0 and finger("LT").shares == ""
+    assert rig.share_groups(s) == {"LT": ["LT"], "L1": ["L1"], "L2": ["L2", "L3", "L4"],
+                                   "R1": ["R1"], "R2": ["R2", "R3", "R4"]}, rig.share_groups(s)
+    assert rig.tilt_slots(s) == {"LT"}
+
+    # 2. Both sync paths keep the new fields: relabel (same ids) and rebuild (ids changed)
+    s.profile = "CLARINET_BB"
+    assert finger("L3").shares == "L2" and finger("LT").tilt == 3.0 and finger("LT").label.endswith("(register)")
+    s.profile = "MONO_WIND"
+    finger("LT").tilt = 4.5
+    s.fingers.remove(1)                                    # drop L1: the ids no longer match
+    rig.sync_finger_slots(s)
+    assert [f.slot for f in s.fingers] == ["LT", "L1", "L2", "L3", "L4", "R1", "R2", "R3", "R4"]
+    assert finger("L3").shares == "L2" and finger("L4").shares == "L2", "shares lost on rebuild"
+    assert finger("LT").tilt == 4.5 and [b.bone for b in finger("LT").bones] == ["hand.L"], "tilt lost on rebuild"
+    assert len(finger("L1").bones) == 0
+    assert bpy.ops.midianim.detect_fingers() == {"FINISHED"}
+    assert finger("LT").tilt == 4.5, "Detect must keep a tilt the user set"
+    finger("LT").tilt = 3.0
+
+    # 3. Markers for every slot that has a chain (shared ones included), none for the tilt slot
+    place_markers(s, arm)
+    markers = rig.find_markers()
+    assert ("L3", "G") in markers and ("L4", "LowC#") in markers and not any(sl == "LT" for sl, _ in markers)
+    assert bpy.ops.midianim.autoassign() == {"FINISHED"}
+    for name in ("F.L2.A.Down", "F.L3.G.Down", "F.L3.G.Up", "F.L4.LowC#.Down", "F.R4.LowC.Up",
+                 "F.LT.Octave.Down", "F.LT.Octave.Up", "F.Rest"):
+        assert name in bpy.data.actions, name
+    l2 = set(bones["L2"])
+    assert {actions.bone_of(p) for p, _ in actions.pose_values(bpy.data.actions["F.L3.G.Down"])} == l2
+    bpy.ops.midianim.apply_pose(action="F.L3.G.Down")
+    d = (tip_world(arm, bones["L2"][-1]) - markers[("L3", "G")].matrix_world.translation).length
+    bpy.ops.midianim.apply_pose(action="F.L2.A.Down")
+    d2 = (tip_world(arm, bones["L2"][-1]) - markers[("L2", "A")].matrix_world.translation).length
+    print(f"shared chain tip distance: on L3's key {d * 1000:.2f} mm, on L2's key {d2 * 1000:.2f} mm")
+    assert d < 0.004 and d2 < 0.004, (d, d2)
+    against, locked, worst_tip = bend_checks(s, arm, markers, {"L1", "L2", "L3", "L4", "R1", "R2", "R3", "R4"})
+    assert against < 1.0 and locked < 1.0 and worst_tip < 0.004, (against, locked, worst_tip)
+    # The tilt poses: rotation channels of the hand only; Down is Up turned 3 deg around the bend axis (-X)
+    up = actions.pose_values(bpy.data.actions["F.LT.Octave.Up"])
+    down = actions.pose_values(bpy.data.actions["F.LT.Octave.Down"])
+    assert set(up) == set(down) == {('pose.bones["hand.L"].rotation_quaternion', i) for i in range(4)}, up
+    q_up = Quaternion([up[('pose.bones["hand.L"].rotation_quaternion', i)] for i in range(4)])
+    q_down = Quaternion([down[('pose.bones["hand.L"].rotation_quaternion', i)] for i in range(4)])
+    rel = q_up.inverted() @ q_down
+    assert abs(math.degrees(rel.angle) - 3.0) < 1e-3, math.degrees(rel.angle)
+    assert (rel.axis - Vector((-1, 0, 0))).length < 1e-4, tuple(rel.axis)
+    # F.Rest: each chain once (over the first listed slot's home key), the hand's rotation, the other hand
+    rest_bones = {actions.bone_of(p) for p, _ in actions.pose_values(bpy.data.actions["F.Rest"])}
+    assert rest_bones == set(bones["L1"]) | l2 | set(bones["R1"]) | set(bones["R2"]) | {"hand.L", "hand.R"}, rest_bones
+    rest = actions.pose_values(bpy.data.actions["F.Rest"])
+    for k, v in actions.pose_values(bpy.data.actions["F.L2.A.Up"]).items():
+        assert abs(rest[k] - v) < 1e-5
+    assert "forearm.L" not in rest_bones          # the tilt slot's parent is not a "hand bone"
+
+    # 4. A slot with no bones is skipped silently by Autoassign and listed once by Analyze
+    finger("R4").shares = ""
+    assert "R4" not in rig.finger_bones(s)
+    _, _, problems, _ = autoassign.autoassign(bpy.context, s)
+    assert problems == [], problems
+    assert bpy.ops.midianim.fill_from_chart(which="FILE") == {"FINISHED"}
+    assert bpy.ops.midianim.analyze() == {"FINISHED"}
+    lines = [line.text for line in s.report]
+    assert "Not animated (no bones): R Pinky" in lines, lines
+    assert not any(line.startswith("Keys without a marker") for line in lines), lines    # LT needs none
+    finger("R4").shares = "R2"
+    assert bpy.ops.midianim.analyze() == {"FINISHED"}
+    assert not any(line.text.startswith("Not animated") for line in s.report), [line.text for line in s.report]
+
+    # 5. Bake: pressing wins. G4 (1.8-2.4 s) is remapped to L1 + L3 only, so the shared chain goes to
+    # L3's marker; A4 (2.4-3.0 s, L1 L2) puts it on L2's; D5 (4.2-5.4 s) adds the octave key: the
+    # hand tilts; C#5 (3.6-4.2 s) is open: the hand is back.
+    state.find_note(s, parse_note_name("G4")).combination = "L1=B;L3=G"
+    assert bpy.ops.midianim.bake() == {"FINISHED"}
+    assert "MIDI: Fingering" in [t.name for t in arm.animation_data.nla_tracks]
+
+    def check(frame, pose, bone_set):
+        scene.frame_set(frame)
+        vals = actions.pose_values(bpy.data.actions[pose], bone_set)
+        assert vals, pose
+        for (path, idx), v in vals.items():
+            owner, prop = path.rsplit(".", 1)
+            got = getattr(arm.path_resolve(owner), prop)[idx]
+            assert abs(got - v) < 1e-3, (frame, pose, path, idx, got, v)
+
+    fps = 24
+    check(int(1 + 2.1 * fps), "F.L3.G.Down", l2)
+    check(int(1 + 2.7 * fps), "F.L2.A.Down", l2)
+    check(int(1 + 4.8 * fps), "F.LT.Octave.Down", {"hand.L"})
+    check(int(1 + 3.9 * fps), "F.LT.Octave.Up", {"hand.L"})
+    # the rest between phrases (5.4-6.6 s): the chain is up over the key it left last (D5: L2's A)
+    check(int(1 + 6.0 * fps), "F.Rest", l2)
+
+    # 6. Lock on: the hand's rotation comes from the hold target, so the tilt is baked there too
+    assert bpy.ops.midianim.guess_hold_bones() == {"FINISHED"}
+    assert (s.hold_strap_bone, s.hold_hand_l, s.hold_hand_r) == ("chest", "hand.L", "hand.R")
+    scene.frame_set(1)
+    assert bpy.ops.midianim.lock_hands() == {"FINISHED"}
+    tgt = bpy.data.objects["MIDI Hold L"]
+    assert bpy.ops.midianim.bake() == {"FINISHED"}
+    assert [t.name for t in tgt.animation_data.nla_tracks] == ["MIDI: Fingering"], \
+        [t.name for t in tgt.animation_data.nla_tracks]
+
+    def hand_rot(frame):
+        scene.frame_set(frame)
+        bpy.context.view_layer.update()
+        return (arm.matrix_world @ pb["hand.L"].matrix).to_3x3(), (arm.matrix_world @ pb["hand.L"].head).copy()
+
+    m_up, head_up = hand_rot(int(1 + 3.9 * fps))
+    m_down, head_down = hand_rot(int(1 + 4.8 * fps))
+    rel = (m_up.inverted() @ m_down).to_quaternion()
+    print(f"locked thumb tilt: {math.degrees(rel.angle):.3f} deg around {tuple(round(v, 3) for v in rel.axis)}, "
+          f"hand moved {(head_down - head_up).length * 1000:.3f} mm")
+    assert abs(math.degrees(rel.angle) - 3.0) < 0.05, math.degrees(rel.angle)
+    assert (rel.axis - Vector((-1, 0, 0))).length < 1e-2, tuple(rel.axis)       # the hand's own X
+    assert (head_down - head_up).length < 1e-3, "the wrist left its hold target"
+    assert (head_up - tgt.matrix_world.translation).length < 1e-3
+    # Re-bake replaces the target's track; Clear removes it
+    assert bpy.ops.midianim.bake() == {"FINISHED"}
+    assert [t.name for t in tgt.animation_data.nla_tracks] == ["MIDI: Fingering"]
+    assert bpy.ops.midianim.clear() == {"FINISHED"}
+    assert not tgt.animation_data.nla_tracks
+    assert bpy.ops.midianim.unlock_hands() == {"FINISHED"}
+    print("two-finger checks passed")
+
+
 def main():
     midi_animator.register()
     scene, arm, sax, face = build_scene()
@@ -520,6 +686,7 @@ def main():
     s.hud.naming = "SOLFEGE"
     assert state.display_name(s, parse_note_name("D4")) == "Ré4"
     clarinet_checks(scene, s, arm)
+    two_finger_checks()
     midi_animator.unregister()
     print("ALL TESTS PASSED")
 

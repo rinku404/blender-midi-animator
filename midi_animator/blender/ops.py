@@ -75,16 +75,23 @@ class MIDIANIM_OT_analyze(bpy.types.Operator):
         if unmapped:
             line("Unmapped notes: " + ", ".join(note_name(p) for p in unmapped), "ERROR")
 
+        bones = rig.finger_bones(s)
+        if bones:
+            silent = [f.label for f in s.fingers if f.slot not in bones]
+            if silent:
+                line("Not animated (no bones): " + ", ".join(silent), "INFO")
+        tilt = rig.tilt_slots(s)             # a tilt slot needs no markers
         markers = rig.find_markers()
         needed_keys = set()
         for m in s.notes:
             if m.pitch in written and not m.pose:
                 needed_keys.update(state.parse_combination(m.combination).items())
-        no_marker = sorted(f"{sl} {k}" for sl, k in needed_keys if (sl, k) not in markers)
+        no_marker = sorted(f"{sl} {k}" for sl, k in needed_keys if (sl, k) not in markers and sl not in tilt)
         if no_marker:
             line("Keys without a marker: " + ", ".join(no_marker), "ERROR")
         no_pose = sorted(f"{sl} {k}" for sl, k in needed_keys
-                         if (sl, k) in markers and not bpy.data.actions.get(autoassign.pose_name(sl, k, True)))
+                         if ((sl, k) in markers or sl in tilt)
+                         and not bpy.data.actions.get(autoassign.pose_name(sl, k, True)))
         if no_pose:
             line("Keys without poses (run Autoassign): " + ", ".join(no_pose), "ERROR")
         if not unmapped and not no_marker and not no_pose and notes:
@@ -148,7 +155,9 @@ class MIDIANIM_OT_add_audio(bpy.types.Operator):
 # ---------------------------------------------------------------------------
 
 class MIDIANIM_OT_detect_fingers(bpy.types.Operator):
-    """Find each finger's bones from the rig's bone names (Rigify, Mixamo, VRoid, ...)"""
+    """Find each finger's bones from the rig's bone names (Rigify, Mixamo, VRoid, numbered fingers).
+    On a hand with fewer fingers, missing fingers share a found finger's bones and a missing
+    thumb becomes the hand's press tilt"""
     bl_idname = "midianim.detect_fingers"
     bl_label = "Detect Fingers"
     bl_options = {"REGISTER", "UNDO"}
@@ -159,14 +168,25 @@ class MIDIANIM_OT_detect_fingers(bpy.types.Operator):
 
     def execute(self, context):
         s = state.settings(context)
-        missing = rig.detect_fingers(s)
+        missing, asg = rig.detect_fingers(s)
         axis, odd = rig.detect_bend_axis(s)
+        by_slot = {f.slot: f for f in s.fingers}
+        labels = {sl: f.label for sl, f in by_slot.items()}
         if axis is None:
             bend = f"fingers straight at rest, Bend Axis kept at {s.bend_axis}"
         else:
             bend = f"Bend Axis {axis}" + (f" (these curl another way: {', '.join(odd)})" if odd else "")
+        parts = []
+        for owner in dict.fromkeys(asg.shares.values()):
+            users = [labels[sl] for sl, o in asg.shares.items() if o == owner]
+            parts.append(f"{labels[owner]} also plays {', '.join(users)}")
+        for sl, hand in asg.tilt_hands.items():
+            parts.append(f"{labels[sl]} = tilt of {hand} ({by_slot[sl].tilt:g}°)")
+        extra = ("; " + "; ".join(parts)) if parts else ""
         if missing:
-            self.report({"WARNING"}, "Not found, pick bones by hand: " + ", ".join(missing) + "; " + bend)
+            self.report({"WARNING"}, "Not found, pick bones by hand: " + ", ".join(missing) + extra + "; " + bend)
+        elif parts:
+            self.report({"INFO"}, f"Found {len(asg.chains)} fingers{extra}; {bend}")
         else:
             self.report({"INFO"}, f"Found all {len(s.fingers)} fingers; {bend}")
         return {"FINISHED"}

@@ -6,8 +6,9 @@ import bpy
 from mathutils import Quaternion, Vector
 
 from ..core import fingering as core_fing
+from ..core import rigs
 from ..core import signal as core_signal
-from . import actions, autoassign, rig, state
+from . import actions, autoassign, hold, rig, state
 
 
 # ---------------------------------------------------------------------------
@@ -71,18 +72,47 @@ class _Resolver:
         return vals
 
 
+def tilt_targets(s):
+    """[(finger, hold target)] for tilt slots whose bone is locked to the instrument (hold.py).
+    The Copy Rotation overrides a tilt keyed on the bone, so Bake keys it on the target too."""
+    out = []
+    bones = rig.finger_bones(s)
+    for f in s.fingers:
+        if f.slot in rig.tilt_slots(s):
+            tgt = hold.rotation_target(s.rig, bones[f.slot][0])
+            if tgt is not None:
+                out.append((f, tgt))
+    return out
+
+
+def _bake_tilt_on_target(s, finger, tgt, keys):
+    """Key the hold target's rotation: tilted while a key of the slot is down, as it is now
+    otherwise. Returns a message, or None if the target's rotation mode can't be keyed."""
+    base = actions.rotation_channels(tgt)
+    try:
+        down = actions.rotation_channels(tgt, tilt=rigs.tilt_rotation(s.bend_axis, finger.tilt))
+    except ValueError as e:
+        return f"{finger.label}: {e}"
+    chans = [(p, i, [(f, (down if st[0] == "down" else base)[(p, i)]) for f, _, st in keys])
+             for p, i in sorted(base)]
+    act = actions.build_action(tgt, f"{actions.GEN_PREFIX}Tilt {tgt.name.split()[-1]}", chans, "BEZIER")
+    actions.push_strip(tgt, "Fingering", act, "REPLACE")
+    return None
+
+
 def bake_fingering(scene, s, data):
-    """Returns (notes_used, missing_pitches, missing_poses)."""
+    """Returns (notes_used, missing_pitches, missing_poses, warnings)."""
     arm = s.rig
     prof = state.profile(s)
     slot_bones = rig.finger_bones(s)
+    groups = rig.share_groups(s)
     homes = {sl.id: sl.keys[0] for sl in prof.slots}
     hand = _hand_bones(s, slot_bones)
     if hand:
         slot_bones[core_fing.HAND] = hand
     slots = list(slot_bones)
     if not slots:
-        return 0, [], ["no finger bones set"]
+        return 0, [], ["no finger bones set"], []
 
     notes = [(state.frame_of(s, scene, n.start), state.frame_of(s, scene, n.end), n.pitch + s.transpose)
              for n in state.performer_notes(s, data)]
@@ -90,31 +120,32 @@ def bake_fingering(scene, s, data):
         transition=s.transition, lift_lead=s.lift_lead,
         rest_gap=s.relax_after * state.fps(scene), use_rest=s.rest_pose is not None)
     tl = core_fing.build_timeline(notes, state.mapping_dict(s), slots, homes, params)
+    # slots sharing one bone chain become one timeline per chain: (frame, slot, state)
+    merged = core_fing.merge_shared(tl.keys, groups)
     res = _Resolver(s, slot_bones, homes)
 
     finger_chans, hand_chans, influence = [], [], []
-    for slot in slots:
-        keys = tl.keys[slot]
+    for chain_slot, keys in merged.items():
         if not keys:
             continue
-        if slot == core_fing.HAND:
+        if chain_slot == core_fing.HAND:
             # Hand bones only follow Rest / override poses; in between, the strip's influence
             # drops to 0 so your own hand animation shows through.
-            posed = [(f, st) for f, st in keys if st[0] in ("rest", "pose")]
-            channels = sorted({ch for _, st in posed for ch in res.values(slot, st)})
+            posed = [(sl, st) for _, sl, st in keys if st[0] in ("rest", "pose")]
+            channels = sorted({ch for sl, st in posed for ch in res.values(sl, st)})
             last = {}
             pts = {ch: [] for ch in channels}
-            for f, st in keys:
-                vals = res.values(slot, st) if st[0] in ("rest", "pose") else last
+            for f, sl, st in keys:
+                vals = res.values(sl, st) if st[0] in ("rest", "pose") else last
                 last = vals or last
                 for ch in channels:
                     pts[ch].append((f, vals.get(ch, actions.identity_value(*ch))))
                 influence.append((f, 1.0 if st[0] in ("rest", "pose") else 0.0))
             hand_chans = [(p, i, pts[(p, i)]) for p, i in channels]
             continue
-        channels = sorted({ch for _, st in keys for ch in res.values(slot, st)})
+        channels = sorted({ch for _, sl, st in keys for ch in res.values(sl, st)})
         for ch in channels:
-            pts = [(f, res.values(slot, st).get(ch, actions.identity_value(*ch))) for f, st in keys]
+            pts = [(f, res.values(sl, st).get(ch, actions.identity_value(*ch))) for f, sl, st in keys]
             finger_chans.append((ch[0], ch[1], pts))
 
     if finger_chans:
@@ -127,7 +158,13 @@ def bake_fingering(scene, s, data):
         for f, v in influence:
             strip.influence = v
             strip.keyframe_insert("influence", frame=f)
-    return tl.notes_used, tl.missing, sorted(res.missing)
+    warnings = []
+    for finger, tgt in tilt_targets(s):
+        keys = merged.get(finger.slot)
+        if keys:
+            problem = _bake_tilt_on_target(s, finger, tgt, keys)
+            warnings += [problem] if problem else []
+    return tl.notes_used, tl.missing, sorted(res.missing), warnings
 
 
 # ---------------------------------------------------------------------------
@@ -244,6 +281,7 @@ def bake_all(context):
     owners = []
     if s.fingering_enabled and s.rig:
         owners.append(s.rig)
+        owners += [t for _, t in tilt_targets(s) if t not in owners]     # thumb tilt on a hold target
     for e in effects:
         o = effect_owner(e)
         if o is not None and o not in owners:
@@ -257,8 +295,9 @@ def bake_all(context):
 
     msgs, warnings = [], []
     if s.fingering_enabled and s.rig:
-        used, missing_notes, missing_poses = bake_fingering(scene, s, data)
+        used, missing_notes, missing_poses, tilt_warnings = bake_fingering(scene, s, data)
         msgs.append(f"{used} fingered notes")
+        warnings += tilt_warnings
         if missing_notes:
             warnings.append("unmapped notes: " + ", ".join(state.ui_name(p) for p in missing_notes))
         if missing_poses:

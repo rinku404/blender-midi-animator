@@ -29,7 +29,9 @@ One track/channel selection + **Transpose** at the top; per-effect override unde
 - Finger slots (sax): LH thumb (octave), LH index/middle/ring/pinky, RH index/middle/ring/pinky.
   RH thumb only supports the instrument. The B♭ clarinet uses the same slots (LH thumb: its hole
   and the register key).
-- Bone chains auto-detected from common rig names (Rigify, Mixamo, VRoid); manual bone picker override.
+- Bone chains auto-detected from common rig names (Rigify, Mixamo, VRoid, numbered fingers); manual bone picker override.
+- Hands with fewer fingers: a slot can **share** another slot's bone chain (pressing wins, the slot
+  listed first has priority); a missing thumb is the hand bone's **Press Tilt** (ADR 0013).
 - **Key markers:** Empties parented to the instrument, assigned to a finger, local +Z out of the key.
   Added at the 3D cursor or at the selected vertex.
 - Finger state = **Up** or **Down on marker X**.

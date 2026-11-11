@@ -22,44 +22,97 @@ def sync_finger_slots(s):
             if f.label != sl.label:
                 f.label = sl.label
         return
-    saved = {k: ([b.bone for b in f.bones], f.up_pose) for k, f in existing.items()}
+    # every per-finger field goes here, or a rebuild (slot ids changed) drops it
+    saved = {k: ([b.bone for b in f.bones], f.up_pose, f.shares, f.tilt) for k, f in existing.items()}
     s.fingers.clear()
     for sl in prof.slots:
         f = s.fingers.add()
         f.slot, f.label = sl.id, sl.label
-        bones, up = saved.get(sl.id, ([], None))
+        bones, up, shares, tilt = saved.get(sl.id, ([], None, "", 0.0))
         for b in bones:
             f.bones.add().bone = b
         f.up_pose = up
+        f.shares, f.tilt = shares, tilt
+
+
+def _set_bones(f, names):
+    f.bones.clear()
+    for b in names:
+        f.bones.add().bone = b
 
 
 def detect_fingers(s):
-    """Fill every finger slot from the rig's bone names. Returns slots that were not found."""
+    """Fill every finger slot from the rig's bone names. A finger the hand doesn't have shares a
+    found finger's bones; a missing thumb gets the hand bone with a press tilt (core.rigs.assign_slots).
+    Slots that get nothing keep what they had. Returns (labels of those, the SlotAssignment)."""
     sync_finger_slots(s)
     arm = s.rig
     bones = [(b.name, b.parent.name if b.parent else None) for b in arm.data.bones]
-    found = rigs.chains_for_slots(state.profile(s).slots, bones)
+    asg = rigs.assign_slots(state.profile(s).slots, bones)
     missing = []
     for f in s.fingers:
-        chain = found.get(f.slot)
-        if not chain:
+        if f.slot in asg.chains:
+            _set_bones(f, asg.chains[f.slot])
+            f.shares, f.tilt = "", 0.0
+        elif f.slot in asg.shares:
+            _set_bones(f, [])
+            f.shares, f.tilt = asg.shares[f.slot], 0.0
+        elif f.slot in asg.tilt_hands:
+            _set_bones(f, [asg.tilt_hands[f.slot]])
+            f.shares = ""
+            if not f.tilt:
+                f.tilt = rigs.THUMB_TILT_DEG
+        else:
             missing.append(f.label)
-            continue
-        f.bones.clear()
-        for b in chain:
-            f.bones.add().bone = b
-    return missing
+    return missing, asg
+
+
+def share_owner(s, slot_id):
+    """The slot whose bones `slot_id` moves: itself when it has its own, else the slot it shares
+    (following shares of shares), or None when the link is broken or circular."""
+    by_slot = {f.slot: f for f in s.fingers}
+    seen, cur = set(), slot_id
+    while cur in by_slot and by_slot[cur].shares and cur not in seen:
+        seen.add(cur)
+        cur = by_slot[cur].shares
+    return cur if cur in by_slot and not by_slot[cur].shares else None
 
 
 def finger_bones(s):
-    """{slot: [bone names root -> tip]} for slots whose bones exist on the rig."""
-    out = {}
+    """{slot: [bone names root -> tip]} for slots whose bones exist on the rig. A slot that shares
+    another slot's bones lists that chain (the same list object), so every slot in a group
+    resolves to one chain."""
     arm = s.rig
+    own = {}
     for f in s.fingers:
+        if f.shares:
+            continue
         names = [b.bone for b in f.bones if b.bone and arm and b.bone in arm.pose.bones]
         if names:
-            out[f.slot] = names
+            own[f.slot] = names
+    out = {}
+    for f in s.fingers:
+        owner = share_owner(s, f.slot) if f.shares else f.slot
+        if owner in own:
+            out[f.slot] = own[owner]
     return out
+
+
+def share_groups(s):
+    """{owner slot: [slot, ...]} for every chain, slots in list order (the first listed has
+    priority when they disagree). Single-slot chains are included."""
+    bones = finger_bones(s)
+    groups = {}
+    for f in s.fingers:
+        if f.slot in bones:
+            groups.setdefault(share_owner(s, f.slot), []).append(f.slot)
+    return groups
+
+
+def tilt_slots(s):
+    """Slots whose press is the first bone's tilt (no markers, no IK)."""
+    bones = finger_bones(s)
+    return {f.slot for f in s.fingers if f.tilt and not f.shares and f.slot in bones}
 
 
 def _rest_curls(arm, chain):
@@ -77,8 +130,11 @@ def detect_bend_axis(s):
     curl around another axis]). None = the fingers are straight at rest; s.bend_axis is kept."""
     bones = finger_bones(s)
     labels = {f.slot: f.label for f in s.fingers}
-    joints, per_finger = [], {}
+    joints, per_finger, seen = [], {}, set()
     for slot, chain in bones.items():
+        if tuple(chain) in seen:            # a shared chain counts once
+            continue
+        seen.add(tuple(chain))
         curls = _rest_curls(s.rig, chain)
         joints += curls
         per_finger[slot] = rigs.detect_bend_axis(curls)

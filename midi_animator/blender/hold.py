@@ -153,6 +153,17 @@ def lock_hands(context, s):
             f"{', '.join(t.name for t in targets.values())}. Move the targets to adjust the grip")
 
 
+def rotation_target(arm, bone_name):
+    """The hold target that holds `bone_name`'s rotation while locked, or None. While it does,
+    a tilt keyed on the bone is overridden, so Bake keys the tilt on the target instead."""
+    pb = arm.pose.bones.get(bone_name) if arm else None
+    for c in (pb.constraints if pb else ()):
+        if (c.type == "COPY_ROTATION" and c.name == f"{PREFIX} Rotation" and c.target is not None
+                and not c.mute and c.influence > 0.0):
+            return c.target
+    return None
+
+
 def unlock_hands(context, s):
     """Remove the hand constraints and targets, and give the arms back their scale inheritance.
     The instrument keeps hanging from the strap."""

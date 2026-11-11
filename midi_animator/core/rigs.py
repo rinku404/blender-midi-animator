@@ -1,7 +1,8 @@
-"""Finger bone-chain detection from bone names (Rigify, Mixamo, VRoid, Unreal, generic)."""
+"""Finger bone-chain detection from bone names (Rigify, Mixamo, VRoid, Unreal, generic, numbered)."""
 
 import math
 import re
+from dataclasses import dataclass
 
 FINGER_WORDS = {
     "thumb": ("thumb",),
@@ -10,9 +11,13 @@ FINGER_WORDS = {
     "ring": ("ring",),
     "pinky": ("pinky", "little", "pinkie"),
 }
+FINGER_ORDER = ("index", "middle", "ring", "pinky")      # the fingers a slot can share
+# Numbered fingers ("arm left finger 1a_045", "Finger_02_L"): the digit after "finger"
+_NUMBERED = re.compile(r"finger[\s_.\-]*0*(\d)(?!\d)")
 # Helper / mechanism bones that are not the ones to pose
 EXCLUDE = ("org-", "def-", "mch-", "vis_", "master", "tweak", "_ik", ".ik", "ik_", "target",
            "pole", "parent", "socket", "meta", "_end", "nub", "tip")
+THUMB_TILT_DEG = 3.0       # default hand tilt that stands in for a missing thumb (see tilt_rotation)
 
 
 def _side(name):
@@ -34,11 +39,30 @@ def _side(name):
 
 
 def _finger(name):
+    """A finger word ("index"), or "#<n>" for a numbered finger ("finger 2b"), or None."""
     low = name.lower()
     for finger, words in FINGER_WORDS.items():
         if any(w in low for w in words):
             return finger
-    return None
+    m = _NUMBERED.search(low)
+    return f"#{m.group(1)}" if m else None
+
+
+def _numbered_to_named(found):
+    """Give numbered fingers names, per side. Five or more: 1 is the thumb, 2 the index, and so on.
+    Fewer: 1 is the index and the hand has no thumb (CJ: 1 = index, 2 = middle). A side with
+    named fingers keeps those and drops its numbered ones."""
+    out = {}
+    for side in ("L", "R"):
+        named = {k: v for k, v in found.items() if k[0] == side and not k[1].startswith("#")}
+        numbered = sorted((int(k[1][1:]), v) for k, v in found.items() if k[0] == side and k[1].startswith("#"))
+        if named or not numbered:
+            out.update(named)
+            continue
+        names = ("thumb",) + FINGER_ORDER if len(numbered) >= 5 else FINGER_ORDER
+        for (_, chain), finger in zip(numbered, names):
+            out[(side, finger)] = chain
+    return out
 
 
 def detect_finger_chains(bones):
@@ -56,12 +80,7 @@ def detect_finger_chains(bones):
 
     chains = {}
     for key, names in groups.items():
-        def depth(n, names=names):
-            d, p = 0, parent.get(n)
-            while p in names:
-                d, p = d + 1, parent.get(p)
-            return d
-        # keep the longest connected chain
+        # keep the longest connected chain (children sorted by name: 1a -> 1b -> 1c)
         best = []
         for root in [n for n in names if parent.get(n) not in names]:
             chain, cur = [root], root
@@ -75,13 +94,60 @@ def detect_finger_chains(bones):
                 best = chain
         if best:
             chains[key] = best
-    return chains
+    return _numbered_to_named(chains)
 
 
 def chains_for_slots(slots, bones):
     """{slot_id: [bone names]} for the profile's finger slots."""
+    return assign_slots(slots, bones).chains
+
+
+@dataclass
+class SlotAssignment:
+    chains: dict        # slot id -> [bone names root -> tip]
+    shares: dict        # slot id -> slot id whose bones it uses (fingers the hand doesn't have)
+    tilt_hands: dict    # thumb slot id -> hand bone: no thumb bone, the hand's tilt stands in
+
+
+def assign_slots(slots, bones):
+    """Fill the profile's finger slots from the rig's bone names.
+
+    A finger the hand doesn't have shares the bones of the nearest found finger before it
+    (index, middle, ring, pinky order), or of the first found finger if none comes before it:
+    a two-finger hand gives index | middle + ring + pinky. A thumb slot with no thumb bone is
+    offered the hand bone (the parent of the fingers) for a press tilt, when the side has any
+    finger at all."""
     found = detect_finger_chains(bones)
-    return {s.id: found[(s.side, s.finger)] for s in slots if (s.side, s.finger) in found}
+    parent = dict(bones)
+    chains = {s.id: found[(s.side, s.finger)] for s in slots if (s.side, s.finger) in found}
+    shares, tilt_hands = {}, {}
+    for side in ("L", "R"):
+        fingers = sorted((s for s in slots if s.side == side and s.finger in FINGER_ORDER),
+                         key=lambda s: FINGER_ORDER.index(s.finger))
+        have = [s for s in fingers if s.id in chains]
+        if not have:
+            continue
+        for i, s in enumerate(fingers):
+            if s.id in chains:
+                continue
+            before = [t for t in fingers[:i] if t.id in chains]
+            shares[s.id] = (before[-1] if before else have[0]).id
+        hand = parent.get(chains[have[0].id][0])
+        for s in slots:
+            if s.side == side and s.finger == "thumb" and s.id not in chains and hand:
+                tilt_hands[s.id] = hand
+    return SlotAssignment(chains, shares, tilt_hands)
+
+
+def tilt_rotation(bend_axis, tilt_deg):
+    """(axis index, radians) that turn a hand bone around its own bend axis by tilt_deg, in the
+    curling direction (towards the fingers' keys) for a positive tilt. A thumb pressing the
+    octave or register key on the back of the instrument squeezes the hand towards the keys,
+    which is what the tilt stands for on a hand without a thumb bone."""
+    if bend_axis not in BEND_AXES:
+        raise ValueError(f"bend axis must be one of {BEND_AXES}, not {bend_axis!r}")
+    sign = -1.0 if bend_axis.startswith("-") else 1.0
+    return "xyz".index(bend_axis[-1].lower()), sign * math.radians(tilt_deg)
 
 
 # -- "Hold the Instrument": strap and hand bones -------------------------------

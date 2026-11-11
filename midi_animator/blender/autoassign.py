@@ -8,6 +8,11 @@ backwards. The bones' own IK settings are put back afterwards.
 Autoassign also builds "F.Rest": every finger hovering over its home key, plus the hand bones
 as they are now. It becomes the Rest pose unless you picked your own.
 
+Hands with fewer fingers: a slot that shares another slot's bones is solved with that chain onto
+its own markers (pose names stay per slot and key). A slot with a Press Tilt (a thumb on a hand
+without a thumb bone) gets no IK: its Down poses turn the first bone by the tilt around the Bend
+Axis, its Up poses are the bone as posed now. A slot with no bones is skipped.
+
 Generated poses remember a fingerprint of their values. If you edit a pose (or lock it by
 hand), Autoassign leaves it alone unless "Overwrite Locked" is on.
 """
@@ -117,6 +122,30 @@ def _restore(arm, snapshot):
         getattr(arm.path_resolve(owner), prop)[idx] = v
 
 
+def _tilt_poses(arm, s, slot, finger, bone):
+    """Poses for a tilt slot (a thumb standing in as the hand's tilt): every key's Down is `bone`
+    turned by the finger's tilt around the Bend Axis, Up is the bone as posed now. Rotation
+    channels only, so the hand's location and the user's own keys stay untouched.
+    Returns (created, skipped_locked)."""
+    pb = arm.pose.bones[bone]
+    base = f'pose.bones["{bone}"]'
+    up_vals = actions.rotation_channels(pb, base)
+    down_vals = actions.rotation_channels(pb, base, rigs.tilt_rotation(s.bend_axis, finger.tilt))
+    created = skipped = 0
+    for key in slot.keys:
+        for down in (True, False):
+            if not down and finger.up_pose is not None:
+                continue
+            name = pose_name(slot.id, key, down)
+            old = bpy.data.actions.get(name)
+            if old is not None and is_locked(old) and not s.force_autoassign:
+                skipped += 1
+                continue
+            _save_values(arm, name, down_vals if down else up_vals)
+            created += 1
+    return created, skipped
+
+
 def autoassign(context, s, only_slot=None):
     """Returns (created, skipped_locked, problems, rest_message)."""
     arm = s.rig
@@ -128,14 +157,23 @@ def autoassign(context, s, only_slot=None):
     if context.mode != "OBJECT":
         bpy.ops.object.mode_set(mode="OBJECT")
 
+    tilt_slots = rig.tilt_slots(s)
     for slot in prof.slots:
         if only_slot and slot.id != only_slot:
             continue
         chain = bones.get(slot.id)
         if not chain:
-            problems.append(f"{slot.label}: no bones")
-            continue
+            continue                  # not animated (Analyze says so); shared slots have a chain
         finger = next((f for f in s.fingers if f.slot == slot.id), None)
+        if slot.id in tilt_slots:
+            try:
+                n_created, n_locked = _tilt_poses(arm, s, slot, finger, chain[0])
+            except ValueError as e:
+                problems.append(f"{slot.label}: {e}")
+                continue
+            created += n_created
+            skipped += n_locked
+            continue
         snapshot = {}
         for b in chain:
             snapshot.update(actions.bone_channels(arm.pose.bones[b]))
@@ -180,7 +218,10 @@ def _hand_bones(s, bones):
     arm = s.rig
     in_fingers = {b for chain in bones.values() for b in chain}
     out = set()
-    for chain in bones.values():
+    tilt = rig.tilt_slots(s)
+    for slot, chain in bones.items():
+        if slot in tilt:
+            continue              # a tilt slot's bone is the hand itself; its parent is the forearm
         parent = arm.pose.bones[chain[0]].parent
         if parent is not None:
             out.add(parent.name)
@@ -213,11 +254,12 @@ def build_rest(s, bones):
         if s.rest_pose is None:
             s.rest_pose = old
         return f"{REST_NAME} is locked, kept"
-    values, as_posed = {}, []
+    values, as_posed, seen = {}, [], set()
     for slot in state.profile(s).slots:
         chain = bones.get(slot.id)
-        if not chain:
-            continue
+        if not chain or tuple(chain) in seen:
+            continue                  # a shared chain rests over the first listed slot's home key
+        seen.add(tuple(chain))
         act = _up_pose(s, slot)
         vals = actions.pose_values(act, set(chain)) if act is not None else {}
         if not vals:

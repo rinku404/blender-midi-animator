@@ -117,6 +117,84 @@ def test_unchanging_finger_still_keyed():
     assert tl.keys["R4"] == [(8, ("up", "LowEb"))]
 
 
+# -- shared bone chains (step 11) ---------------------------------------------
+
+def chain_state_at(keys, frame):
+    """(slot, state) in effect at a frame of a merged chain timeline."""
+    cur = None
+    for f, sl, st in keys:
+        if f <= frame + 1e-6:
+            cur = (sl, st)
+    return cur
+
+
+def merged(notes, mapping, groups, **params):
+    tl = F.build_timeline(notes, mapping, SLOTS, HOMES, F.TimingParams(use_rest=False, **params))
+    return tl, F.merge_shared(tl.keys, groups)
+
+
+def test_merge_passes_unshared_slots_through():
+    tl, m = merged([(10, 20, n("G4"))], chart_mapping(), {"L2": ["L2", "L3", "L4"]})
+    assert m["L1"] == [(f, "L1", st) for f, st in tl.keys["L1"]]
+    assert set(m) == set(SLOTS) - {"L3", "L4"}
+    # groups with slots that have no timeline are ignored; a HAND pseudo slot passes through too
+    keys = dict(tl.keys, **{F.HAND: [(8, ("up", None))]})
+    m2 = F.merge_shared(keys, {"L2": ["L2", "L3", "L4"], "R2": ["R2", "R9"]})
+    assert m2[F.HAND] == [(8, F.HAND, ("up", None))]
+    assert m2["R2"] == [(f, "R2", st) for f, st in keys["R2"]]
+
+
+def test_merge_agreeing_slots_follow_the_first_listed():
+    # G4 presses L1 L2 L3: L2 and L3 agree (both down), the chain goes to L2's marker (listed first)
+    tl, m = merged([(10, 20, n("G4"))], chart_mapping(), {"L2": ["L2", "L3", "L4"]})
+    assert m["L2"] == [(f, "L2", st) for f, st in tl.keys["L2"]]
+    assert chain_state_at(m["L2"], 15) == ("L2", ("down", "A"))
+
+
+def test_merge_pressing_wins_over_lifting():
+    # Custom map: note 1 presses L2 (A), note 2 presses L3 (G) only. The chain is on A, lifts with
+    # L2 (lift lead), then drops onto G exactly at the second onset.
+    mp = {60: F.NoteMap({"L2": "A"}), 62: F.NoteMap({"L3": "G"}), 64: F.NoteMap({})}
+    tl, m = merged([(10, 20, 60), (20, 30, 62), (30, 40, 64)], mp, {"L2": ["L2", "L3", "L4"]},
+                   transition=2, lift_lead=1)
+    keys = m["L2"]
+    assert (10, "L2", ("down", "A")) in keys
+    assert (20, "L3", ("down", "G")) in keys
+    assert chain_state_at(keys, 15) == ("L2", ("down", "A"))
+    assert chain_state_at(keys, 25) == ("L3", ("down", "G"))
+    # L3 arrives at 20 over 2 frames: its hold key at 18 is kept, so the move starts there
+    assert chain_state_at(keys, 18)[1][0] != "down" or chain_state_at(keys, 18)[0] == "L2"
+    assert all(f1 < f2 for (f1, _, _), (f2, _, _) in zip(keys, keys[1:]))
+    # after both lift (the open note), the chain hovers over the key it left last (G, from L3)
+    assert chain_state_at(keys, 35) == ("L3", ("up", "G"))
+
+
+def test_merge_higher_priority_slot_keeps_the_chain_mid_note():
+    # L2 holds A for the whole phrase; L3 presses G in the middle: L2 is listed first, so the chain
+    # stays on A and L3's press adds no key at all
+    mp = {60: F.NoteMap({"L2": "A"}), 62: F.NoteMap({"L2": "A", "L3": "G"})}
+    tl, m = merged([(10, 20, 60), (20, 30, 62), (30, 40, 60)], mp, {"L2": ["L2", "L3", "L4"]})
+    keys = m["L2"]
+    assert all(sl == "L2" for _, sl, _ in keys)
+    assert chain_state_at(keys, 25) == ("L2", ("down", "A"))
+    assert [f for f, _, _ in keys] == [f for f, _ in tl.keys["L2"]]
+    # the other way round, L3 listed first wins the shared frames
+    m3 = F.merge_shared(tl.keys, {"L2": ["L3", "L2", "L4"]})
+    assert chain_state_at(m3["L2"], 25) == ("L3", ("down", "G"))
+    assert chain_state_at(m3["L2"], 15) == ("L2", ("down", "A"))
+
+
+def test_merge_rest_and_override_are_unanimous():
+    mp = {60: F.NoteMap({"L2": "A"}), 62: F.NoteMap(pose="Trill")}
+    tl = F.build_timeline([(10, 20, 60), (60, 70, 62)], mp, SLOTS, HOMES,
+                          F.TimingParams(use_rest=True, rest_gap=12))
+    keys = F.merge_shared(tl.keys, {"L2": ["L2", "L3", "L4"]})["L2"]
+    assert chain_state_at(keys, 8)[1] == F.REST          # the first key: Rest until the hand moves
+    assert chain_state_at(keys, 40)[1] == F.REST
+    assert chain_state_at(keys, 65)[1] == ("pose", "Trill")
+    assert chain_state_at(keys, 80)[1] == F.REST
+
+
 def test_combination_label():
     assert F.combination_label(SAX.chart[n("D5")], SAX.slots) == "LT L1 L2 L3 | R1 R2 R3"
     assert F.combination_label(SAX.chart[n("C4")], SAX.slots).endswith("R4:LowC")
