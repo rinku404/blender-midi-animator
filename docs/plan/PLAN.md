@@ -19,9 +19,9 @@ Every agent reads **[AGENT_BRIEF.md](AGENT_BRIEF.md)** first.
 | 3 | Verify the HUD in Blender's UI | 1 | run Blender with a window | ✅ done ([report](reports/step-03-hud-ui.md)) |
 | 4 | Finger quality: bend direction and an auto Rest pose | 2 | no | ✅ done ([report](reports/step-04-finger-quality.md)) |
 | 5 | Chart completion: F#6, and a check against the old chart | 1 | no | ✅ done ([report](reports/step-05-chart.md)) |
-| 6 | Pipeline trial on CJ + clarinet (no fingering judgement) | 2, 3, 4, 5 | **yes** | 🔄 in progress |
-| 10 | Clarinet profile (B♭ Boehm chart) | 5 | no | ⬜ todo |
-| 11 | Hands with fewer fingers (shared finger bones) | 4 | answer 2 questions | ⬜ todo |
+| 6 | Pipeline trial on CJ + clarinet (no fingering judgement) | 2, 3, 4, 5 | **yes** | 🔄 in progress (draft PR #10) |
+| 10 | Clarinet profile (B♭ Boehm chart) | 5 | no | ✅ done ([report](reports/step-10-clarinet.md)) |
+| 11 | Hands with fewer fingers (shared finger bones) | 4 | answered 2026-11-11 | 🔄 in progress |
 | 12 | Fingering trial: CJ playing the clarinet | 6, 10, 11 | **yes** | ⬜ todo |
 | 7 | Fixes from the trials | 6, 12 | maybe | ⬜ todo (scope set after 6 and 12) |
 | 8 | Robustness and performance on long takes | 6, 12 | no | ⬜ todo |
@@ -36,6 +36,7 @@ step 9 was written; follow the **Depends on** column, not the numbers, for the o
 | Date | Change |
 |---|---|
 | 2026-11-07 | Plan created. Step 0 recorded as done. PR #2 (hold + per-finger chart on the old file) found on `main`: added steps 1–2 to reconcile and port it. |
+| 2026-11-11 | Step 10 done (PR #9): B♭ Clarinet profile, written E3–C6, `default_transpose` (sax 0, clarinet +2), thumb keys `Hole` / `Register` / `RegOnly`, new `L4:C#/G#`; an independent chart from a second agent matched on all 33 pitches. The take is written E3–A5, all mapped. Review fixes: `sync_finger_slots` relabels in place (keeps step 11's new fields), fixed profile enum numbers. Step 11 started with the user's answers (recorded in step 11). Step 6 has draft PR #10. Open for the user: after an instrument switch, Fill without Overwrite keeps sax rows and Analyze counts them as mapped (step 7 warning vs. a step 12 checklist line). |
 | 2026-11-10 | **Target changed** (user): the video is CJ (`carl_johnson_cj.glb`, 2 three-joint fingers per hand, no thumb, no CheekPuff) playing a **B♭ clarinet**, not a sax. Step 6 narrowed to the pipeline (fingering can't be judged on this setup yet). Added step 10 (clarinet profile), step 11 (rigs with fewer fingers) and step 12 (fingering trial). Transpose for the take is **+2** (B♭ clarinet: written = concert + 2; the take's lowest note, MIDI 50 = concert D3, is the clarinet's written E3), and the HUD shows **Concert** pitch so it displays the recorded notes. ADR 0012. Trial files: `D:\3D\blender_projects\midi_trial\` (`midi_trial.blend`, inputs in `src\`). |
 | 2026-11-09 | Step 5 done (PR #8): chart Bb3–F#6 (new `R1:HighF#`), low C# corrected to the standard fingering (six fingers + left pinky C#; the earlier "intentional" note was wrong). Step 6 gains marker placement for palm/side/high F# keys and asks the user to confirm low C# and F#6. Step 7 gains an optional candidate: alternate fingerings. |
 | 2026-11-08 | Step 3 done (PR #7): all four HUD paths work (24/24 checks). Fixed ProRes and composite colours (they were toned by AgX), composite offset at render % ≠ 100, and the cut-off Hold box. Composite under AgX/Filmic keeps the render exact and warns that the HUD is toned (user's choice, ADR 0009 note). Step 6 gains HUD checks in Resolve and under AgX; step 7 gains confirmed UI polish (other cut-off labels, preview hidden under the sidebar). |
@@ -274,6 +275,12 @@ slots can share one bone chain.
    middle + ring + pinky (L2–L4 / R2–R4). Thumb (LT): none, or the hand bone's own tilt?
 2. When the slots sharing a chain disagree (one presses, another lifts), which wins? Suggested: **pressing wins**, and the
    chain goes to the marker of the **highest-priority pressing slot** (order: the slot listed first).
+
+**User's answers (2026-11-11):** (1) as suggested: finger 1 = index (L1/R1), finger 2 = middle + ring + pinky
+(L2–L4 / R2–R4), and the thumb (LT) is **the hand bone's own slight tilt**, not "none". (2) as suggested: pressing wins,
+highest-priority pressing slot's marker. Test rig for Detect + sharing: CJ's original two-finger rig in
+`D:\3D\blender_projects\midi_trial\midi_trial_before_fingers.blend` (`midi_trial.blend` now has rebuilt 4-finger hands).
+Note from step 6 (P1): Lock's forearm IK targets the forearm tail, which on CJ's FBX rig sits 39 cm from the wrist.
 
 **Tasks**
 1. Data model: a finger slot can say "uses the bones of slot X" (a `shares` field). Detect Fingers handles numbered
