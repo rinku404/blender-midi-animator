@@ -16,7 +16,7 @@ Read `docs/plan/AGENT_BRIEF.md` first and follow it: one step per branch, and a 
 
 ## Layout
 - `midi_animator/core/`: pure Python, **must never import `bpy`**. MIDI parser (`midi.py`),
-  blow signal (`signal.py`), profiles + sax chart (`profiles.py`), fingering timeline
+  blow signal (`signal.py`), profiles + sax and B♭ clarinet charts (`profiles.py`), fingering timeline
   (`fingering.py`), rig-name finger detection (`rigs.py`), HUD layout (`hud.py`), note names (`notes.py`).
 - `midi_animator/blender/`: thin Blender layer: `props.py` (Scene.midi_animator), `ops.py`,
   `ui.py` (sidebar tab "MIDI"), `rig.py` (finger slots, key markers), `autoassign.py`
@@ -35,9 +35,10 @@ blender --command extension validate midi_animator                   # manifest 
 ```
 New logic goes in `core/` with a pytest test whenever it doesn't need Blender.
 
-## Status (2026-11-07)
-- `core/`: done, 39 tests passing (sax chart Bb3–F#6 since step 5).
-- `blender/`: `tests/test_in_blender.py` passes in Blender 5.2.3 (2026-11-07), and the built
+## Status (2026-11-10)
+- `core/`: done, 49 tests passing (sax chart Bb3–F#6 since step 5; B♭ clarinet profile, Boehm chart
+  E3–C6 and default Transpose +2, since step 10).
+- `blender/`: `tests/test_in_blender.py` passes in Blender 5.2.3 (2026-11-10, sax and clarinet), and the built
   extension installs and enables. The HUD (viewport preview, PNG export, ProRes 4444 with alpha,
   composite scene) passes `tests/test_hud_in_ui.py` in Blender 5.2.3 with a window (2026-11-07, step 3).
   The composite copies the scene's view transform; under AgX/Filmic the HUD colours are toned (warned).

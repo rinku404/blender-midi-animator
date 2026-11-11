@@ -9,7 +9,8 @@ baked character animation (fingering + breath) and a Guitar-Hero-style note HUD.
   - `midi.py` — Standard MIDI File parser (format 0/1, tempo map, running status, SMPTE).
   - `signal.py` — blow signal: sampling, attack/release smoothing, threshold, curve,
     normalize, velocity fallback shape, Direct and Lung modes.
-  - `profiles.py` — instrument profile registry; v1 ships *Monophonic Wind/Brass* (sax chart).
+  - `profiles.py` — instrument profile registry; v1 ships *Monophonic Wind/Brass* (sax chart)
+    and *B♭ Clarinet* (Boehm chart, default Transpose +2; ADR 0012).
   - `fingering.py` — note → finger-combination resolution and per-finger key timeline.
   - `hud.py` — HUD layout maths (what to draw at time *t*).
 - `blender/` is the thin layer: properties, operators, baking, drawing, UI.
@@ -18,15 +19,16 @@ baked character animation (fingering + breath) and a Guitar-Hero-style note HUD.
 
 ## Instrument profiles
 Dropdown backed by Python profile classes. A profile defines: finger slots, built-in
-fingering chart, blow-effect presets, and overlap handling. Monophonic Wind/Brass: a note
-ends where the next begins.
+fingering chart, blow-effect presets, overlap handling and a default Transpose (applied when
+switching instrument). Monophonic Wind/Brass and B♭ Clarinet: a note ends where the next begins.
 
 ## Performer
 One track/channel selection + **Transpose** at the top; per-effect override under Advanced.
 
 ## Fingers & keys
 - Finger slots (sax): LH thumb (octave), LH index/middle/ring/pinky, RH index/middle/ring/pinky.
-  RH thumb only supports the instrument.
+  RH thumb only supports the instrument. The B♭ clarinet uses the same slots (LH thumb: its hole
+  and the register key).
 - Bone chains auto-detected from common rig names (Rigify, Mixamo, VRoid); manual bone picker override.
 - **Key markers:** Empties parented to the instrument, assigned to a finger, local +Z out of the key.
   Added at the 3D cursor or at the selected vertex.
@@ -39,7 +41,7 @@ One track/channel selection + **Transpose** at the top; per-effect override unde
 
 ## Note mapping
 - Explicit per-note table. Each row = a finger combination (one combination may serve many notes).
-- Bulk-fill from the built-in **saxophone chart**; fully editable.
+- Bulk-fill from the instrument's built-in chart (**saxophone** or **B♭ clarinet**); fully editable.
 - Optional per-note **whole-hand pose** override. Required **Rest** pose.
 - Analyze lists notes in the file that have no mapping.
 

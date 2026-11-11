@@ -4,7 +4,8 @@
 
 Builds a small rig with Rigify-style finger names (fingers curled a little downwards at rest),
 an instrument with key markers and a face with a CheekPuff shape key; then Detect Fingers ->
-Autoassign -> Fill From Chart -> blow effects -> Bake, and checks the result.
+Autoassign -> Fill From Chart -> blow effects -> Bake, and checks the result. Then it switches
+to the B-flat clarinet profile and runs markers -> Autoassign -> Fill -> Bake again.
 """
 import math
 import os
@@ -240,6 +241,108 @@ def hold_breath_checks(scene, s, arm, sax):
     s.hold_hand_r = "hand.R"
 
 
+def clarinet_checks(scene, s, arm):
+    """Switch to the B-flat clarinet profile and run the same pipeline on it."""
+    assert s.transpose == 0 and s.profile == "MONO_WIND", (s.transpose, s.profile)
+
+    # 0. Switching keeps each finger slot as it is (same slot ids), only the labels follow.
+    # The probe stands for any per-finger setting: rebuilding the list would drop it.
+    def finger(slot):
+        return next(f for f in s.fingers if f.slot == slot)
+
+    finger("L2").up_pose = bpy.data.actions["F.L2.A.Up"]
+    finger("L2")["midianim_probe"] = 1
+    bones_before = rig.finger_bones(s)
+    s.profile = "CLARINET_BB"
+    assert s.get("profile") == 1, s.get("profile")          # the number saved in the scene
+    assert finger("LT").label == "L Thumb (register)", finger("LT").label
+    s.profile = "MONO_WIND"
+    assert s.get("profile") == 0, s.get("profile")
+    assert finger("LT").label == "L Thumb (octave)", finger("LT").label
+    assert rig.finger_bones(s) == bones_before
+    assert finger("L2").up_pose == bpy.data.actions["F.L2.A.Up"]
+    assert finger("L2").get("midianim_probe") == 1, "finger slots were rebuilt on switching"
+    del finger("L2")["midianim_probe"]
+    finger("L2").up_pose = None
+
+    # 1. Default Transpose follows the instrument unless the user changed it
+    s.profile = "CLARINET_BB"
+    assert s.transpose == 2, s.transpose
+    s.profile = "MONO_WIND"
+    assert s.transpose == 0, s.transpose
+    s.transpose = 5
+    s.profile = "CLARINET_BB"
+    assert s.transpose == 5, s.transpose
+    s.profile = "MONO_WIND"
+    assert s.transpose == 5, s.transpose
+    s.transpose = 0
+    s.profile = "CLARINET_BB"
+    assert s.transpose == 2, s.transpose
+
+    # 2. Finger slots follow the profile and keep their bones
+    assert s.fingers[0].label == "L Thumb (register)", s.fingers[0].label
+    bones = rig.finger_bones(s)
+    assert bones["L1"] == ["f_index.01.L", "f_index.02.L", "f_index.03.L"], bones
+    assert len(bones) == 9, bones
+
+    # 3. Markers + Autoassign
+    place_markers(s, arm)
+    markers = rig.find_markers()
+    s.force_autoassign = True
+    try:
+        _, _, problems, _ = autoassign.autoassign(bpy.context, s)
+    finally:
+        s.force_autoassign = False
+    assert problems == [], problems
+    for name in ("F.LT.Register.Down", "F.LT.RegOnly.Up", "F.L1.A.Down", "F.L4.E/B.Down",
+                 "F.L4.C#/G#.Down", "F.R1.Eb/Bb.Down", "F.R4.Ab/Eb.Up"):
+        a = bpy.data.actions.get(name)
+        assert a is not None and a.asset_data is not None, name
+    against, locked, worst_tip = bend_checks(s, arm, markers)
+    print(f"clarinet bend: against {against:.3f} deg, locked axes {locked:.3f} deg, "
+          f"tip {worst_tip * 1000:.2f} mm")
+    assert against < 1.0 and locked < 1.0 and worst_tip < 0.004, (against, locked, worst_tip)
+    rest = actions.pose_values(bpy.data.actions["F.Rest"])
+    home_up = actions.pose_values(bpy.data.actions["F.L4.E/B.Up"])
+    assert home_up and all(abs(rest[k] - v) < 1e-5 for k, v in home_up.items())
+
+    # 4. Whole chart
+    s.notes.clear()
+    assert bpy.ops.midianim.fill_from_chart(which="ALL") == {"FINISHED"}
+    assert [r.pitch for r in s.notes] == list(range(52, 85)), [r.pitch for r in s.notes]
+    holes = {k: "Hole" for k in ("L1", "L2", "L3", "R1", "R2", "R3")}
+    b4 = state.find_note(s, parse_note_name("B4"))
+    assert state.parse_combination(b4.combination) == {**holes, "LT": "Register", "L4": "E/B"}, b4.combination
+    as4 = state.find_note(s, parse_note_name("A#4"))
+    assert state.parse_combination(as4.combination) == {"LT": "RegOnly", "L1": "A"}, as4.combination
+    g4 = state.find_note(s, parse_note_name("G4"))
+    assert state.parse_combination(g4.combination) == {}, g4.combination
+
+    # 5. The sample file: E6 (88) is above the clarinet chart
+    s.notes.clear()
+    assert bpy.ops.midianim.fill_from_chart(which="FILE") == {"FINISHED"}
+    pitches = [r.pitch for r in s.notes]
+    assert len(pitches) == 13 and 88 not in pitches, pitches
+    assert bpy.ops.midianim.analyze() == {"FINISHED"}
+    lines = [line.text for line in s.report if line.text.startswith("Unmapped notes")]
+    assert lines == ["Unmapped notes: E6"], lines
+
+    # 6. Bake
+    assert bpy.ops.midianim.bake() == {"FINISHED"}
+    assert "MIDI: Fingering" in [t.name for t in arm.animation_data.nla_tracks]
+
+    def check(frame, pose, bone_set=None):
+        scene.frame_set(frame)
+        for (path, idx), v in actions.pose_values(bpy.data.actions[pose], bone_set).items():
+            owner, prop = path.rsplit(".", 1)
+            got = getattr(arm.path_resolve(owner), prop)[idx]
+            assert abs(got - v) < 1e-3, (pose, path, idx, got, v)
+
+    check(int(1 + 2.1 * 24), "F.L1.A.Down", set(rig.finger_bones(s)["L1"]))
+    check(int(1 + 2.7 * 24), "F.LT.Register.Down", set(rig.finger_bones(s)["LT"]))
+    print("clarinet checks passed")
+
+
 def main():
     midi_animator.register()
     scene, arm, sax, face = build_scene()
@@ -416,6 +519,7 @@ def main():
     # HUD names
     s.hud.naming = "SOLFEGE"
     assert state.display_name(s, parse_note_name("D4")) == "Ré4"
+    clarinet_checks(scene, s, arm)
     midi_animator.unregister()
     print("ALL TESTS PASSED")
 
