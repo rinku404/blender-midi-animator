@@ -30,7 +30,7 @@ Things caused by the assets or the test file, not by the plugin.
 | S2 | Face | The head mesh has no shape keys, so no `CheekPuff`. | Cheeks preset can't run until a key is sculpted (checklist D2). |
 | S3 | Scale | The clarinet glTF is 64 units long; scaled to 0.0103 (≈0.66 m) and placed in front of the chest. | Needs positioning at the lips for the Hold step. |
 | S4 | Scene | A stray `Icosphere` (2 units) arrives with the imports. | Left in place. |
-| S5 | **Setup change (2026-11-10): CJ's hands rebuilt with real fingers** | See the section below. Done by script on `midi_trial.blend`; the file as the user left it is kept as `midi_trial_before_fingers.blend`. | Detect Fingers now fills all 9 slots. On the original two-finger rig it found nothing (`{}`, script run of the core detector); step 11 still matters for rigs like the original. |
+| S5 | **Setup change (2026-11-10): CJ's hands rebuilt with real fingers** | See the section below. Done by script on `midi_trial.blend`; the file as the user left it is kept as `midi_trial_before_fingers.blend`, the pass-2 result as `midi_trial_pass2.blend`. | Detect Fingers now fills all 9 slots. On the original two-finger rig it found nothing (`{}`, script run of the core detector); step 11 still matters for rigs like the original. |
 | S6 | Mesh | Body mesh `Object_6` is not exactly symmetric: the right half equals the mirror of the left plus (0.0712, -0.0047, -0.1032) in mesh units. | New right-hand geometry and right bones use the same offset so they sit on the right hand. |
 | S7 | File | `midi_trial.blend` was saved with `Object_6` in Edit Mode, and contains no test cube (the user's cube was not saved). | Script switched the object to Object Mode before editing. Nothing to delete. |
 
@@ -38,7 +38,8 @@ Things caused by the assets or the test file, not by the plugin.
 Backup: `D:\3D\blender_projects\midi_trial\midi_trial_before_fingers.blend` (the file exactly as given).
 Rebuilt by script in background Blender 5.2.3 (no Blender MCP was connected), always starting from the backup, so
 the result is reproducible. The scripts and the final parameters are kept in `D:\3D\blender_projects\midi_trial\scripts\`
-(`build.py`, `verify.py`, `rh.py`, `detect.py`, `final_params.json`). Everything is in the one body mesh `Object_6`.
+(`build.py`, `verify.py`, `rh.py`, `sheet.py`, `detect.py`, `final_params.json`; the pass-2 versions in `scripts\pass2\`).
+Everything is in the one body mesh `Object_6`. Passes 1 and 2 below describe the earlier build; pass 3 replaces its fingers and thumb.
 
 **Pass 1 (fingers, bones, weights):**
 - **Measured (left, mesh units; 1 unit = 0.0254 m):** wrist bone x = 29.170, knuckle rim x = 32.555 (back of hand 3.385),
@@ -72,20 +73,48 @@ the result is reproducible. The scripts and the final parameters are kept in `D:
   the hand): finger row moved 0.1 toward the thumb, spacing 95 % of the thickness, pinky 85 % thick (0.607) and 0.05 lower.
   Final centres (left): index y −1.871, middle −1.192, ring −0.513, pinky 0.166.
 
-**Checks (pass 2, `verify.py`):**
-- Weights: 311 finger/thumb vertices, each in exactly one group at 1.0; 0 unweighted vertices in the hand region; old finger groups empty.
-- Per-bone test: each of the 30 new bones rotated 30° alone: only its own segment and the later ones moved (0 unexpected).
-- Full curl, every finger and thumb joint at 0°, 30°, 60° (and 90°): no finger surface crosses the **back** of the hand at
-  any of them (measured with face-overlap tests between each finger and the hand skin). The fingers do cross the **palm
-  sheet** when curled (30°: 4–6 faces per finger; 60°: 7–12), because the palm sheet sticks out ~0.4 past the knuckle wall
-  and the curled fingers bend down through that flap. At 60° the middle finger leaves the knuckle wall entirely and comes
-  out of the palm underside instead. The cap is closed, so no hole shows; it reads as a fist. Fine for clarinet playing
-  (curls well under 60°), noted for step 12.
-- Detect Fingers (plugin, headless): "Found all 9 fingers; Bend Axis X"; slots LT, L1–L4, R1–R4 filled with the new bones;
-  Detect (Bend Axis) also X, no finger on another axis. The thumb tip moves +Z when curled around its X: it curls around
-  another axis, a step 12 topic.
+Pass-2 checks (superseded): no finger crossed the back of the hand at 0–90°; curled fingers crossed the palm flap
+(30°: 4–6 faces each); the thumb curled around the wrong axis. Pass-2 sheets are in `screenshots\pass2\`.
+
+**Pass 3 (user review of the pass-2 hand):** the fingers came out from under a ledge (tops 0.4 below the back of the hand),
+read as round pencils, the thumb was still CJ's flat paddle, and the thumb end of the cap looked dark.
+- **Skin sheets welded:** the hand's back, palm and thumb sheets met at coincident but separate vertices; 48 were merged
+  (both hands), so the openings are clean loops. Two 6-vertex slits at the wrist seam (vertices 0.07 apart, not
+  coincident) are in the original and stay.
+- **Fingers:** flat octagon tubes (flats, not corners, on top and sides), 0.765 wide × 0.60 tall (pinky 0.64 × 0.50),
+  overlapping 3 % at the base, filling y −2.38..0.40. Each knuckle ring sits 0.03 under the knuckle edge of the back of the
+  hand at its own y, and rolls with the edge's sideways slope (index −7°, ring +8°, pinky +17°), so the tops continue
+  the back of the hand. Rest angle 4°, then 9° per joint. Rings: behind the pivot (70 % size, so it stays inside when it
+  swings up), knuckle, middle joint (92 %), end joint (86 %), bevelled tip. Lengths, segment split, the pivot 15 % inside
+  and the 5 % of skin behind it are as in pass 2.
+- **Sloped knuckle row:** the palm's front edge (4 vertices per hand) moved up 0.37–0.64 and back 0.16–0.38, to 0.12
+  under the finger undersides, so the wall under the fingers slopes into them instead of standing ~1.0 tall. This
+  changes CJ's palm shape; `palm_lift: 0` in `final_params.json` keeps the palm as it was.
+- **Thumb:** the paddle is cut 0.5 past the old `1b` joint along its axis (18 faces and 8 vertices per hand), the
+  4-vertex stump hole is capped, and a 3-segment tube is added: 0.88 × 0.75, base joint at the stump, length 2.55 split
+  55 / 45 %, tip where the paddle's tip was, last segment tilted 10° toward the palm. Bones `thumb.01` (old `1a` head to
+  the stump), `.02`, `.03`, rolled so +X curls the tip toward the palm. The stump moves with `thumb.01` (7 vertices L,
+  8 R); one palm-centre vertex that the old thumb bone carried goes to the wrist.
+- **Caps:** the knuckle cap (9 triangles) and the stump cap (2) take the winding of the faces around them; all of them
+  face outward (knuckle: dot with +X ≥ 0.31; stump: dot with the thumb axis 0.82).
+- **Shading:** original faces keep their custom normals, the moved palm faces included; the new faces are flat.
+
+**Checks (pass 3, `verify.py` → `scripts\verify.json`; L and R give the same numbers):**
+- Weights: 479 finger/thumb vertices, each in exactly one group at 1.0; 0 unweighted vertices in the hand; old finger groups empty.
+- Winding: 1,034 hand edges shared by two faces, 0 run the same way by both (caps, stump, tubes and the original skin).
+- Per-bone test: each of the 30 new bones rotated 30° alone moves only its own segment and the later ones (0 unexpected).
+- Curl direction at 30°: every finger tip moves down (dot 0.74 with −Z), both thumb tips toward the palm (0.99). The
+  pass-2 thumb's wrong axis is fixed.
+- Skin test, every joint at once: at rest nothing crosses anything except where a tube goes into the knuckle or stump
+  cap. No finger crosses the **back** of the hand at 0°, 30°, 60° or 90°. Palm side, faces crossed: 30° index 10,
+  middle 6, ring 4, pinky 4, thumb 0; 60° index 13, middle 14, ring 12, pinky 10, thumb 16. Neighbouring fingers touch at
+  the base (the 3 % overlap).
+- With `thumb.01` (the thumb's base joint) at 60°, a thin fold shows on the back of the hand near the thumb: the stump
+  skin folds. It does not show at 30°, nor when only `.02`/`.03` curl. A real thumb base flexes ~15–20°; noted for step 12.
+- Detect Fingers (plugin, headless): "Found all 9 fingers; Bend Axis X"; slots LT, L1–L4, R1–R4 filled with the new
+  bones; Detect (Bend Axis) also X, no finger on another axis.
 - Screenshots: `D:\3D\blender_projects\midi_trial\screenshots\` `sheet_rest.png`, `sheet_curl30.png`, `sheet_curl60.png`
-  (front, top and side of both hands), plus the single views.
+  (front, top, side and 3/4 of both hands), plus the single views.
 
 ## Pending
 Checklist sections A–G, plugin issues table, severities with the user, verification commands, PR.
