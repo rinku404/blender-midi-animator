@@ -96,12 +96,15 @@ Transpose 0, so the script set it back to +2.
 | D2 | limit (S2) | No mesh in the file has shape keys, so no `CheekPuff`. Not sculpted. | – |
 | D3 | ok | Over the whole take (every 3rd frame) with the chest breathing: hands vs targets at most 0.8 mm (L) / 0.9 mm (R), 0.0°. Chest scale 1.00–1.04. | – |
 | E1 | ok | "Baked: 0 fingered notes; Chest ← CC2 \| unmapped notes: E3, G3, G#3, A3, B3, D4, D#4, E4, F4, F#4, G4, G#4, A4, B4, C5, C#5, D5, E5, F#5, G#5, A5" (Note Map empty: expected). | 0.02 s |
-| E2 | **user** | Playback with audio, judging the breath against the clarinet, can only be done by ear. | – |
+| E2 | **issue (P8)** | The user: "it moves, but I don't think it's realistic". Measured: Lung mode inhales only when the blow falls under 2 %, which happens **once** in this take (9.6 s, 0.33 s). From 24.5 s the lungs sit empty for the remaining **31 s**, so the chest stops moving. The take has 7 note gaps > 0.15 s (up to 0.65 s) that a player would breathe in. The user suggests a breath model that refills according to the air the phrases need and follows a breathing pattern. | – |
 | E3 | ok | `Object_3` NLA: track `MIDI: Chest` (strip Chest, Combine, frames 1–1332). No `Base: …` track because CJ had no active action. | – |
 | F1 | ok (script) | Pitch display Concert: the lowest note shows **D3** (written E3). The viewport preview itself still needs a look in the UI. | – |
 | F2 | ok | Export 10 s (frames 1–240) as ProRes 4444: 240 RGBA PNGs 1920×360 + `hud.mov` (36.6 MB) in `midi_trial\hud\`. Headless export needs `gpu.init()` first (a script matter, not a user one). | 19.9 s |
 | F3 | **user** | DaVinci Resolve overlay. | – |
-| F4 | **user** | Make Composite Scene with the user's AgX scene; the user judges. | – |
+| F4 | ok (simulated; the user judges the look) | The user chose a simulation: a copy `midi_trial_f4_agx.blend` with the AgX view transform (script `scripts\f4_composite.py`, Workbench, 50 %, frame 120; the file has no camera, so the script added one). AgX: "Created scene 'Scene + HUD'. The HUD colours are toned by this scene's view transform 'AgX'. For exact colours, overlay the exported PNGs or ProRes on your render in a video editor". Outside the HUD band, the composite matches the scene rendered alone to 1/255. The HUD sits at the bottom with its translucent panel. Control under Standard: no warning, same 1/255 match. | – |
+| F1 (preview) | **user** | The viewport HUD preview can only be judged in the UI. | – |
+| G1 | **user** | Severities stay *proposed* until the user confirms them. | – |
+| G2 | ok | Test-setup limits S1–S10 reviewed in the report. | – |
 
 ## Skipped (step 12)
 Marker placement, Autoassign, Fill From Chart judgement, palm/side keys, thumb bend axis, curl naturalness, sax F#6/C# checks.
