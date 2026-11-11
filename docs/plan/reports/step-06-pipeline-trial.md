@@ -113,8 +113,32 @@ read as round pencils, the thumb was still CJ's flat paddle, and the thumb end o
   skin folds. It does not show at 30°, nor when only `.02`/`.03` curl. A real thumb base flexes ~15–20°; noted for step 12.
 - Detect Fingers (plugin, headless): "Found all 9 fingers; Bend Axis X"; slots LT, L1–L4, R1–R4 filled with the new
   bones; Detect (Bend Axis) also X, no finger on another axis.
+- Pass-3 sheets are in `screenshots\pass3\`, the file in `midi_trial_pass3.blend`, the scripts in `scripts\pass3\`.
+
+**Pass 4 (user review: "a huge gap between where the first of the four fingers should be placed and where it really is"):**
+pass 3 put the four fingers on the pinky-side 2.78 of the 3.9-wide knuckle edge, leaving ~0.9 bare at the thumb side.
+Two agents (Claude Opus and Antigravity/Gemini) each made a variant in `variants\`; the user left the choice to us and
+the Claude variant is installed (finger tops closer to the edge, no fingers touching at rest, fewer crossings at 30°).
+- **Finger row** y −3.21..0.49 (3.69 wide, was 2.78): the index's outer side is at the thumb-side corner. Fingers
+  0.94 × 0.73 (pinky 0.79 × 0.62), was 0.75 × 0.58; a small gap between them (`spacing` 1.03). Lengths unchanged.
+- **Roll sign bug fixed:** pass 3 rolled each knuckle ring against the slope of the knuckle edge (`-atan`); it is now
+  `+atan(slope) × 0.9`, so the fingers fan along the knuckle arch. Finger tops sit 0.03–0.06 under the edge (pass 3:
+  up to 0.33 at the pinky). Rolls: index 28°, middle 5°, ring −12°, pinky −33°, back to 0 by the end joint.
+- **Thumb** unchanged (`thumb_w` 0.858 is now absolute, so it no longer grows with the finger width).
+- **Texture bug fixed:** every new face maps to one skin texel. Passes 1–3 used the average of the hand's UVs, which
+  falls between texture islands on **black** (0, 0, 0), so the new fingers would have rendered black in Material
+  Preview. Now it is the hand UV whose colour is closest to the hand's average: new faces (0.27, 0.18, 0.13) vs original
+  hand skin (0.27, 0.16, 0.12). All five images are packed in the .blend.
+
+**Checks (pass 4; L and R the same):** weights 0 bad / 0 unweighted; winding 0 inconsistent of 1,034 edges; per-bone
+test 0 unexpected; curl direction 0.74–0.75 (fingers), 0.98 (thumbs); rest: nothing crossed except the caps, no fingers
+touching; back of the hand never crossed at 0–90°. Palm side at 30°: index 2, middle 7, ring 4, pinky 4, thumb 4; at 60°:
+3 / 14 / 12 / 10 / 16. Detect Fingers: "Found all 9 fingers; Bend Axis X", 9 slots, no other-axis fingers.
+Still off, for step 12: the index sits ~0.43 lower and ~0.2 further back than the middle finger because CJ's knuckle
+edge curves back and down at the thumb-side corner (seen by the user from above); the thumb runs under the palm,
+parallel to the fingers; in a 60° fist the knuckle cap shows as a sawtooth between the wider fingers.
 - Screenshots: `D:\3D\blender_projects\midi_trial\screenshots\` `sheet_rest.png`, `sheet_curl30.png`, `sheet_curl60.png`
-  (front, top, side and 3/4 of both hands), plus the single views.
+  (front, top, side and 3/4 of both hands), `sheet_textured.png` (top and 3/4 with the skin texture), plus the single views.
 
 ## Pending
 Checklist sections A–G, plugin issues table, severities with the user, verification commands, PR.
