@@ -64,6 +64,9 @@ def test_registry():
     assert CLAR.default_transpose == 2 and SAX.default_transpose == 0
     assert CLAR.monophonic
     assert [s.id for s in CLAR.slots] == [s.id for s in SAX.slots]
+    # The dropdown's numbers are saved in scenes: fixed, unique, and the sax keeps 0 (older files)
+    numbers = [p.number for p in P.REGISTRY.values()]
+    assert SAX.number == 0 and CLAR.number == 1 and len(set(numbers)) == len(numbers), numbers
 
 
 def test_full_range_and_keys_exist():

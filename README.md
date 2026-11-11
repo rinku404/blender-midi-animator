@@ -8,7 +8,8 @@ note HUD. Built first for wind controllers such as the **Roland Aerophone GO**:
 - **Autoassign.** Place a marker on each key of the instrument and the extension solves each
   finger onto it with IK, saving **pose assets** (`F.L1.B.Down`, `F.L1.B.Up`, …). Poses you
   tweak are locked so Autoassign won't overwrite them.
-- **Built-in saxophone chart**, editable note by note, with optional whole-hand pose overrides.
+- **Built-in saxophone and B♭ clarinet (Boehm) charts**, editable note by note, with optional
+  whole-hand pose overrides. Each instrument sets its usual Transpose (B♭ clarinet: +2).
 - **Blow (optional).** CC2 (or any CC, aftertouch or velocity) drives the cheeks directly and
   the chest through a **lung model**: it empties while you blow and refills in rests. If the
   file has no blow data, you choose: velocity or off.
@@ -44,7 +45,7 @@ The design is in **[docs/SPEC.md](docs/SPEC.md)** (reasons in [docs/decisions/](
 ```
 midi_animator/
   blender_manifest.toml
-  core/        pure Python, no bpy: MIDI parser, blow signal, profiles + sax chart,
+  core/        pure Python, no bpy: MIDI parser, blow signal, profiles + sax and clarinet charts,
                fingering timeline, rig name detection, HUD layout
   blender/     properties, operators, Autoassign, baking, HUD drawing, panels
 tests/
@@ -66,4 +67,4 @@ python tests/make_sample_midi.py          # regenerate examples/*.mid
 
 - Fingering diagram in the HUD.
 - Key markers as instrument bones, so the instrument's keys animate too.
-- Polyphonic (keyboard, guitar) and Percussion profiles; more fingering charts (flute, clarinet, trumpet).
+- Polyphonic (keyboard, guitar) and Percussion profiles; more fingering charts (flute, trumpet).

@@ -22,7 +22,8 @@ breathes with its chest, and a note HUD you can lay over the video.
    Choosing an instrument sets its usual Transpose: **0** for the sax (if the Aerophone is set to an
    alto or tenor key, it may already send written pitch) and **+2** for the B♭ clarinet (it sounds
    a tone below what is written, so a recorded concert D3 is the clarinet's written E3). If you
-   changed Transpose yourself, switching instrument leaves it alone. If the fingers look shifted,
+   changed Transpose yourself, switching instrument leaves it alone, unless your value equals the
+   previous instrument's default (then it changes to the new one's). If the fingers look shifted,
    set the difference in semitones here. The HUD can still show the recorded notes: set its
    Pitch to **Concert**.
 5. **Fit Scene Range**, then choose the WAV and **Add Audio**.
@@ -38,10 +39,13 @@ breathes with its chest, and a note HUD you can lay over the video.
    hand is on top** (thumb on the thumb rest and octave key; index, middle and ring on B, A and G).
    The **right hand is below** (thumb under the thumb rest; index, middle and ring on F, E and D).
    The pinkies hover over the side keys.
+   A **clarinet** is held in front of the body, angled down with the bell toward the knees and the
+   mouthpiece at the lips, left hand on top and the right thumb under the thumb rest. The Hold box
+   treats it like the sax: it hangs from the same upper-chest **Strap Bone** and the hands lock onto it.
    1. Place the instrument at the lips, angled like that, and pose both arms and hands onto it,
       each finger lightly curled over its key.
-   2. In the **Hold the instrument** box set **Instrument** (the sax body; the bell can stay its
-      child) and click **Guess Bones**. Check the **Strap Bone** (an upper-chest bone, for example
+   2. In the **Hold the instrument** box set **Instrument** (the sax or clarinet body; the bell can
+      stay its child) and click **Guess Bones**. Check the **Strap Bone** (an upper-chest bone, for example
       `mixamorig:Spine2` or Rigify's `spine.003`) and the two **Hand** bones.
    3. Click **Lock**. The instrument now hangs from the strap bone, and two small targets
       (`MIDI Hold L` and `MIDI Hold R`) keep the hands glued to it with IK wherever the body moves.
@@ -121,8 +125,8 @@ slot. Place the markers like this (arrow out of the key or hole, as usual):
 | Finger | Keys | Where to place the marker | Used for (written) |
 |---|---|---|---|
 | L Thumb (`LT`) | `Hole` | on the thumb hole (ring) at the back, where the thumb pad closes it | E3–F4 |
-| | `Register` | where the thumb tip lands when it closes the hole **and** presses the register key above it | every clarion note, B4–C6 |
-| | `RegOnly` | on the register key with the thumb rolled up off the hole | throat A#4 (B♭4) only |
+| | `Register` | on the near (lower) edge of the register key, just above the thumb hole, so the thumb pad stays on the hole while the tip presses the key | every clarion note, B4–C6 |
+| | `RegOnly` | a few mm further up than `Register`, past the near edge of the register key, so the thumb visibly rolls up off the hole | throat A#4 (B♭4) only |
 | L Index (`L1`) | `Hole` | on the first left-hand hole | |
 | | `A` | on the throat A key above that hole (the index rolls up onto it) | A4, A#4 |
 | | `G#` | on the throat G# key beside that hole (the side of the index presses it) | G#4 |

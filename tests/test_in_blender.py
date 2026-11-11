@@ -245,6 +245,26 @@ def clarinet_checks(scene, s, arm):
     """Switch to the B-flat clarinet profile and run the same pipeline on it."""
     assert s.transpose == 0 and s.profile == "MONO_WIND", (s.transpose, s.profile)
 
+    # 0. Switching keeps each finger slot as it is (same slot ids), only the labels follow.
+    # The probe stands for any per-finger setting: rebuilding the list would drop it.
+    def finger(slot):
+        return next(f for f in s.fingers if f.slot == slot)
+
+    finger("L2").up_pose = bpy.data.actions["F.L2.A.Up"]
+    finger("L2")["midianim_probe"] = 1
+    bones_before = rig.finger_bones(s)
+    s.profile = "CLARINET_BB"
+    assert s.get("profile") == 1, s.get("profile")          # the number saved in the scene
+    assert finger("LT").label == "L Thumb (register)", finger("LT").label
+    s.profile = "MONO_WIND"
+    assert s.get("profile") == 0, s.get("profile")
+    assert finger("LT").label == "L Thumb (octave)", finger("LT").label
+    assert rig.finger_bones(s) == bones_before
+    assert finger("L2").up_pose == bpy.data.actions["F.L2.A.Up"]
+    assert finger("L2").get("midianim_probe") == 1, "finger slots were rebuilt on switching"
+    del finger("L2")["midianim_probe"]
+    finger("L2").up_pose = None
+
     # 1. Default Transpose follows the instrument unless the user changed it
     s.profile = "CLARINET_BB"
     assert s.transpose == 2, s.transpose

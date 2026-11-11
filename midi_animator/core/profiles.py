@@ -48,6 +48,7 @@ class Profile:
     chart: dict = field(default_factory=dict)    # written pitch -> {slot_id: key}
     presets: tuple = ()
     default_transpose: int = 0                   # semitones from the file's (concert) pitch to written
+    number: int = 0                              # fixed and unique: saved scenes store it for the dropdown
 
     def slot(self, slot_id):
         return next((s for s in self.slots if s.id == slot_id), None)
@@ -162,6 +163,7 @@ def monophonic_wind():
         slots=SAX_SLOTS,
         chart=_sax_chart(),
         presets=WIND_PRESETS,
+        number=0,
     )
 
 
@@ -244,4 +246,5 @@ def clarinet_bb():
         chart=_clarinet_chart(),
         presets=WIND_PRESETS,
         default_transpose=2,
+        number=1,
     )

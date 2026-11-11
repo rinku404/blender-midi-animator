@@ -18,7 +18,8 @@ from . import rig
 
 
 def _profile_items(self, context):
-    return [(p.id, p.name, p.description) for p in profiles.REGISTRY.values()]
+    # Fixed numbers: scenes save the number, so a new profile can't change a saved instrument
+    return [(p.id, p.name, p.description, p.number) for p in profiles.REGISTRY.values()]
 
 
 def _profile_update(self, context):

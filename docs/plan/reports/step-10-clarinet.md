@@ -125,13 +125,14 @@ Both found the take at written E3–A5, 21 pitches, with nothing above C6.
 ## Changes
 | File | What changed |
 |---|---|
-| `midi_animator/core/profiles.py` | `Profile.default_transpose`. Presets moved to a shared `WIND_PRESETS` (sax unchanged). New `CLARINET_SLOTS`, `_clarinet_chart()` (docstring: sources, key meanings, pinky choice) and the `CLARINET_BB` profile ("B♭ Clarinet", +2). |
-| `midi_animator/blender/props.py` | `profile` update callback: applies the new default Transpose if Transpose still equals the previous profile's default (hidden `transpose_profile`; "" = the sax), and refreshes listed finger slots. |
-| `midi_animator/blender/rig.py` | `sync_finger_slots` also rebuilds when the labels differ (same ids, bones kept), so the list shows "L Thumb (register)". One line. |
+| `midi_animator/core/profiles.py` | `Profile.default_transpose` and `Profile.number` (fixed dropdown number: sax 0, clarinet 1). Presets moved to a shared `WIND_PRESETS` (sax unchanged). New `CLARINET_SLOTS`, `_clarinet_chart()` (docstring: sources, key meanings, pinky choice) and the `CLARINET_BB` profile ("B♭ Clarinet", +2). |
+| `midi_animator/blender/props.py` | `profile` update callback: applies the new default Transpose if Transpose still equals the previous profile's default (hidden `transpose_profile`; "" = the sax), and relabels listed finger slots. Enum items carry each profile's fixed number. |
+| `midi_animator/blender/rig.py` | `sync_finger_slots`: when the slot ids match and only the labels differ (sax ↔ clarinet), it relabels in place and keeps everything else; it still rebuilds when the ids change. |
 | `tests/core/test_clarinet.py` | New, 10 tests: registry and defaults, full range and slot keys, register key placement, clarion rule, throat tones and break, the WFG source table (parser), the take's pitches, `combination_label`, timeline (G4 → A4 moves only L1; crossing the break). |
 | `tests/test_in_blender.py` | `clarinet_checks()` at the end: Transpose follows the instrument (and is kept when the user changed it), labels and bones, markers + Autoassign (bend and tip checks), Fill: Whole Chart (52–84), Fill: This File + Analyze (only E6 unmapped), Bake (A4 and B4 frames carry the right poses). |
 | `docs/aerophone-guide.md` | Instrument choice; Transpose defaults (+2, HUD Concert); Fill after switching; a **Clarinet keys** table (where to place each marker, which notes use it), the break, throat tones, pinky hands. |
 | `CLAUDE.md` | Status: 49 core tests, clarinet profile. |
+| `README.md`, `docs/SPEC.md` | The clarinet chart is shipped, no longer roadmap; profiles carry a default Transpose. |
 | `docs/plan/reports/step-10/clarinet_sidebar.png` | Screenshot: panels 1 and 3 with the clarinet selected (Blender 5.2.3, a window). |
 
 ## Verification
@@ -167,8 +168,8 @@ Also checked:
 ## Deviations from the plan or spec
 - Key names: `Hole` for every hole (the plan said `Thumb`, `L1`, …), `Eb/Bb` for the side key (the plan's
   `Side4`), and two keys the plan didn't list: `LT:RegOnly` and `L4:C#/G#`. Reasons under *Slots and keys*.
-- `rig.sync_finger_slots` changed by one line, so labels follow the profile. **Heads-up for step 11**, which works on
-  the same function.
+- `rig.sync_finger_slots` relabels in place when only the labels differ, so labels follow the profile and every other
+  per-finger setting stays. **Heads-up for step 11**, which works on the same function.
 - The clarinet reuses the sax's blow presets (Cheeks, Chest) through `WIND_PRESETS`.
 - Tests were written by a Traycer child agent (Sonnet, medium) per the user's agent guide; I reviewed them, made
   three small edits (an unused import, two names) and ran the verification.
@@ -203,3 +204,30 @@ hands as above, range E3–C6 (no altissimo; the take doesn't need it).
 
 ## Questions for the user
 None asked. The take stays below C6, so there was no altissimo choice to make.
+
+## Review fixes
+The Opus review of PR #9 said "merge after fixes", no blockers. Fixed:
+
+| # | Finding | Fix |
+|---|---|---|
+| 1 | The guide put both `Register` and `RegOnly` "on the register key", so they'd land on one spot | Clarinet keys table: `Register` on the near (lower) edge of the register key, the thumb pad still on the hole; `RegOnly` a few mm further up, so the thumb visibly rolls off the hole. |
+| 2 | `sync_finger_slots` rebuilt the list on every sax ↔ clarinet switch, which would drop any per-finger field step 11 adds | Same slot ids: relabel in place and return; rebuild only when the ids change. New e2e check: sax → clarinet → sax keeps bones, `up_pose` and a custom probe property on L2, and the `LT` label follows. With the old code patched back in, that check fails ("finger slots were rebuilt on switching"). |
+| 3 | The dropdown's numbers came from registration order, so a later profile could change the instrument in saved scenes | `Profile.number` (sax 0, clarinet 1), passed as the enum item number; older files (stored 0) still load as the sax. pytest: numbers unique, sax 0, clarinet 1; e2e: the scene stores 1 for the clarinet and 0 for the sax. |
+| 4 | Guide: "switching instrument leaves it alone" wasn't exact | Now: "…unless your value equals the previous instrument's default". |
+| 5 | Stale docs | README (feature list, layout, roadmap no longer lists the clarinet), SPEC (v1 ships both charts; default Transpose; clarinet slots), guide Hold section (one paragraph on holding a clarinet with the same strap bone; no new behaviour). |
+
+Not changed, as instructed: Fill and Analyze with stale sax rows after a switch (a planning decision for the user).
+
+Verification after the fixes:
+```
+python -m pytest tests/core -q
+49 passed
+
+"C:\Program Files\Blender Foundation\Blender 5.2\blender.exe" -b --factory-startup --python tests/test_in_blender.py
+clarinet bend: against 0.000 deg, locked axes 0.024 deg, tip 0.40 mm
+clarinet checks passed
+ALL TESTS PASSED
+
+"C:\Program Files\Blender Foundation\Blender 5.2\blender.exe" --command extension validate midi_animator
+Success parsing TOML in "midi_animator"
+```
