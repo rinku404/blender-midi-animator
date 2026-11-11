@@ -3,8 +3,8 @@ step: 06
 title: Pipeline trial on CJ + clarinet
 status: partial          # waiting for the user: severities (G1), F1 preview, F3 Resolve
 branch: plan/step-06-trial
-pr: pending
-commits: pending
+pr: "#10 (draft)"
+commits: bd535de..7b2b9ec
 date: 2026-11-10
 blender: Blender 5.2.3 LTS (C:\Program Files\Blender Foundation\Blender 5.2\blender.exe)
 tests_core: 39 passed (python -m pytest tests/core, 2026-11-11)
