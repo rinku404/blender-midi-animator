@@ -4,7 +4,7 @@ title: "Clarinet profile (B♭ Boehm)"
 status: done
 branch: plan/step-10-clarinet
 pr: "#9"
-commits: 8f9c9ad..35ec28e
+commits: 8f9c9ad..26b5198
 date: 2026-11-10
 blender: 5.2.3 LTS, "C:\Program Files\Blender Foundation\Blender 5.2\blender.exe"
 tests_core: 49 passed
