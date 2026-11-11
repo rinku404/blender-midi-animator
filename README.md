@@ -34,7 +34,7 @@ The design is in **[docs/SPEC.md](docs/SPEC.md)** (reasons in [docs/decisions/](
 | Panel | What it does |
 |---|---|
 | 1. Instrument & MIDI | Instrument profile, MIDI file, Analyze, performer track/channel, transpose, audio |
-| 2. Fingers & Keys | Rig, Detect Fingers, bones per finger, key markers, **Autoassign**, locks |
+| 2. Fingers & Keys | Rig, Detect Fingers, bones per finger (or shared with another finger), key markers, **Autoassign**, locks |
 | 3. Note Map | Fill from the chart, edit each note's fingers, whole-hand override, Rest pose, timing |
 | 4. Blow | Cheeks and Chest presets or custom; source, target, Direct/Lung mode, range, smoothing |
 | 5. Note HUD | Live preview, layout, names (written/concert, letters/solfège), colours, export |
