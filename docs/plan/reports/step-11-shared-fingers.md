@@ -3,8 +3,8 @@ step: 11
 title: "Hands with fewer fingers (shared finger bones)"
 status: done
 branch: plan/step-11-shared-fingers
-pr: TBD
-commits: c88e774..(this commit)
+pr: "#12"
+commits: c88e774..6a92721 (plus this report fix)
 date: 2026-11-11
 blender: 5.2.3 LTS, "C:\Program Files\Blender Foundation\Blender 5.2\blender.exe"
 tests_core: 58 passed
