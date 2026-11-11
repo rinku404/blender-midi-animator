@@ -137,8 +137,31 @@ touching; back of the hand never crossed at 0–90°. Palm side at 30°: index 2
 Still off, for step 12: the index sits ~0.43 lower and ~0.2 further back than the middle finger because CJ's knuckle
 edge curves back and down at the thumb-side corner (seen by the user from above); the thumb runs under the palm,
 parallel to the fingers; in a 60° fist the knuckle cap shows as a sawtooth between the wider fingers.
+- Pass-4 sheets are in `screenshots\pass4\`, the file in `midi_trial_pass4.blend`, the scripts in `scripts\pass4\`.
+
+**Pass 5 (user decision: straight knuckle line, thumb off the side of the hand at ~35°):** made by one agent
+(Antigravity, Gemini 4 Argon) in `variants\antigravity`, checked and installed.
+- **Thumb-side corner reshaped** (CJ's mesh, approved): the corner of the knuckle edge moves (+0.37, 0, +0.63) to
+  (32.45, −3.248, 58.38), level with the middle knuckles; the back-of-hand vertex behind it moves (0, −0.26, +0.49) so
+  the index root stays inside; one thenar-edge vertex moves (−0.17, +0.27, −0.09). The thumb web vertex stays, so the
+  hand's side slopes from the index knuckle down to the web.
+- **Index level with the middle finger:** knuckle X 32.459 vs 32.477, top Z 58.359 vs 58.395, roll 0.9° (was 28°);
+  `top_gap_max` ≤ 0.055 for all four.
+- **Thumb rebuilt from the side of the hand:** the whole old paddle on the thumb side is removed (21 faces, 9 vertices
+  per hand), the 5-vertex hole on the side of the hand is capped (3 triangles), and a tube 0.95 × 0.78 (not narrower than
+  the index, 0.94) runs from the base joint (30.55, −3.38, 56.15) at 35° outward from +X and 10° down, length 2.40
+  (1.30 + 1.10), tip (32.58, −4.58, 55.79), well below the knuckle line. Bone `thumb.01` starts at (29.80, −2.70, 56.40).
+
+**Checks (pass 5, rebuilt and re-run here; L and R the same):** weights 0 bad / 0 unweighted; winding 0 inconsistent of
+1,028 edges; per-bone test 0 unexpected; curl direction 0.74–0.75 (fingers), 0.98 (thumbs); rest: nothing crossed but
+the caps, nothing touching (the thumb included); back of the hand never crossed at 0–90°. Palm side at 30°: index 4,
+middle 8, ring 4, pinky 4, thumb 0 (pass 4: 2 / 7 / 4 / 4 / 4); 60°: 2 / 13 / 9 / 10 / 21 (pass 4: 3 / 14 / 12 / 10 / 16).
+Texture: new faces (0.27, 0.18, 0.13) vs hand (0.27, 0.16, 0.12). Detect Fingers: "Found all 9 fingers; Bend Axis X",
+9 slots, no other-axis fingers. Still off: the side-of-hand cap where the thumb leaves is a flat light facet in the front
+views; the knuckle cap still shows as a sawtooth in a 60° fist.
 - Screenshots: `D:\3D\blender_projects\midi_trial\screenshots\` `sheet_rest.png`, `sheet_curl30.png`, `sheet_curl60.png`
-  (front, top, side and 3/4 of both hands), `sheet_textured.png` (top and 3/4 with the skin texture), plus the single views.
+  (front, top, side and 3/4 of both hands), `sheet_textured.png` (top and 3/4 with the skin texture),
+  `user_view_pass4_vs_pass5.png` (the user's view), plus the single views.
 
 ## Pending
 Checklist sections A–G, plugin issues table, severities with the user, verification commands, PR.
