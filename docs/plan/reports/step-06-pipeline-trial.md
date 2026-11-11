@@ -7,8 +7,8 @@ pr: pending
 commits: pending
 date: 2026-11-10
 blender: Blender 5.2.3 LTS (C:\Program Files\Blender Foundation\Blender 5.2\blender.exe)
-tests_core: pending
-tests_blender: pending
+tests_core: 39 passed (python -m pytest tests/core, 2026-11-11)
+tests_blender: ALL TESTS PASSED (tests/test_in_blender.py, -b --factory-startup); extension validate OK
 decision_changes: none
 ---
 
@@ -17,9 +17,17 @@ decision_changes: none
 Walk-through log lives in `docs/plan/notes/trial-checklist.md`. This file is filled in as the trial proceeds.
 
 ## Plugin issues
+Severities are proposals until the user confirms them (G1).
+
 | # | Area | What happened | Expected | Severity | Suggested fix |
 |---|---|---|---|---|---|
-| (none recorded yet) | | | | | |
+| P1 | Hold / Lock | On rigs whose bone tails don't sit on the next joint (CJ's FBX import: forearm tail 39 cm from the wrist), **Lock moves the hands 389.7 mm** off the instrument and holds them there. The forearm IK targets the forearm's tail. | Hands stay where they were posed (0 mm) | bad (proposed) | Lock compares the forearm tail with the hand head. If they are apart, it offers to move the arm bones' tails onto the next joint (what S8 did by script), or at least warns before locking. |
+| P2 | Hold / Guess Bones | Hands not found when the rig names them `wrist` (CJ: `arm left wrist_041`); strap guessed as the lowest spine bone `spine lower_011`. | Wrist bones found; strap on the upper chest | polish (proposed) | Add `wrist` to the hand keywords; prefer the highest `spine` bone in the chain for the strap. |
+| P3 | Blow / Chest preset | The Chest preset's "spine" fallback picks `spine lower_011`, so the whole upper body, head included, swells by up to 4 %. | Chest bone only | polish (proposed) | Prefer the Strap bone if set, else the highest `spine` bone. |
+| P4 | Analyze / Transpose | After changing Transpose, the HUD updates but the text summary (written range, unmapped notes) stays stale until Analyze is clicked again. | Summary follows Transpose | polish (proposed) | Re-run the summary on the Transpose update, or show "re-analyze" in the panel. |
+| P5 | UI | At the default sidebar width many labels and summary lines are cut off (`Instrum…`, `Charact…`, `Ho… 0.012 m`, `written D3–…`, `Unmapped notes…`). | Readable at default width | polish (proposed) | Explicit label splits / two-line summaries, as already done for the Hold box. |
+| P6 | UI text | "1 tracks". | "1 track" | polish (proposed) | Plural only for ≠ 1. |
+| P7 | Guide | The user asked how to pose the arms for the hold, which object to pick as Instrument (the import has `Clarinet`, an in-between empty and the meshes), and pressed Autoassign before any markers existed (0 poses + warning). | The guide answers these before the user hits them | polish (proposed) | Guide §3: arm posing for the hold, "pick the instrument's top object", and "Autoassign needs key markers". |
 
 ## Test-setup limits
 Things caused by the assets or the test file, not by the plugin.
@@ -33,6 +41,8 @@ Things caused by the assets or the test file, not by the plugin.
 | S5 | **Setup change (2026-11-10): CJ's hands rebuilt with real fingers** | See the section below. Done by script on `midi_trial.blend`; the file as the user left it is kept as `midi_trial_before_fingers.blend`, the pass-2 result as `midi_trial_pass2.blend`. | Detect Fingers now fills all 9 slots. On the original two-finger rig it found nothing (`{}`, script run of the core detector); step 11 still matters for rigs like the original. |
 | S6 | Mesh | Body mesh `Object_6` is not exactly symmetric: the right half equals the mirror of the left plus (0.0712, -0.0047, -0.1032) in mesh units. | New right-hand geometry and right bones use the same offset so they sit on the right hand. |
 | S7 | File | `midi_trial.blend` was saved with `Object_6` in Edit Mode, and contains no test cube (the user's cube was not saved). | Script switched the object to Object Mode before editing. Nothing to delete. |
+| S8 | **Setup change (2026-11-11): arm bone tails** | CJ's imported arm bones end beside the limb, not on the next joint (the forearm tail is 39 cm from the wrist), which breaks Lock (P1). `scripts\fix_arm_tails.py` moves the tails of `arm * shoulder 2` and `arm * elbow` onto the next joint (roll kept), then the hold pose is re-applied by `scripts\pose_arms.py`. The mesh is unchanged. Backups: `midi_trial_c1_before.blend` (the clarinet at the lips, T-pose) and `midi_trial_c1_oldrig.blend` (the arms posed on the original bones). | Lock and breathing pass (C4–C6, D3). |
+| S9 | Hold pose | The user placed the clarinet at the lips; the arms were posed by script at the user's request (C1). | C1 timing not representative. |
 
 ### S5: hand rebuild (setup change)
 Backup: `D:\3D\blender_projects\midi_trial\midi_trial_before_fingers.blend` (the file exactly as given).
