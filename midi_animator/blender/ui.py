@@ -3,7 +3,7 @@
 import bpy
 
 from ..core import fingering as core_fing
-from . import autoassign, rig, state
+from . import autoassign, hold, rig, state
 
 
 def _labeled(layout, text, factor=0.38):
@@ -109,6 +109,26 @@ class MIDIANIM_PT_fingers(MIDIANIM_PT_base, bpy.types.Panel):
                                 ("hold_hand_r", "Right Hand")):
                 _labeled(box, label).prop_search(s, attr, s.rig.data, "bones", text="")
         box.operator("midianim.guess_hold_bones", icon="VIEWZOOM")
+        if s.instrument:
+            _labeled(box, "Front (keys)").prop(s, "hold_front", text="")
+            r = box.row(align=True)
+            r.operator("midianim.hold_front_from_view", icon="RESTRICT_VIEW_OFF")
+            r.operator("midianim.hold_front_from_markers", icon="EMPTY_SINGLE_ARROW")
+            angle, verdict = hold.front_status(s)
+            if verdict == "forward":
+                box.label(text=f"Front faces forward ({angle:.0f}° off)", icon="CHECKMARK")
+            elif verdict != "unknown":
+                who = "the player" if verdict == "player" else "sideways"
+                box.label(text=f"Front faces {who} ({angle:.0f}°)", icon="ERROR")
+                box.operator("midianim.hold_turn_front", icon="FILE_REFRESH")
+        if s.rig:
+            bad = hold.off_joint_bones(s)       # [] until the hand bones are set
+            if bad:
+                col = box.column(align=True)
+                col.label(text=f"{len(bad)} arm bone{'s' if len(bad) != 1 else ''} end off the joint",
+                          icon="INFO")
+                col.label(text=f"(up to {max(d for _, _, d in bad) * 100:.0f} cm); Lock fixes them",
+                          icon="BLANK1")
         r = box.row(align=True)
         r.operator("midianim.lock_hands", icon="LOCKED")
         r.operator("midianim.unlock_hands", icon="UNLOCKED")

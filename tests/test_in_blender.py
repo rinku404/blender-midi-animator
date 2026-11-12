@@ -7,7 +7,8 @@ an instrument with key markers and a face with a CheekPuff shape key; then Detec
 Autoassign -> Fill From Chart -> blow effects -> Bake, and checks the result. Then it switches
 to the B-flat clarinet profile and runs markers -> Autoassign -> Fill -> Bake again. Finally it
 builds a two-finger hand (CJ-style numbered bones, no thumb) and checks shared finger slots and
-the thumb tilt (step 11).
+the thumb tilt (step 11), and a CJ-style rig with off-joint arm tails to check that Lock moves
+nothing, that Guess Bones finds wrists and the upper chest, and the instrument's front (step 7a).
 """
 import math
 import os
@@ -15,7 +16,7 @@ import sys
 import traceback
 
 import bpy
-from mathutils import Quaternion, Vector
+from mathutils import Matrix, Quaternion, Vector
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 sys.path.insert(0, ROOT)
@@ -509,6 +510,189 @@ def two_finger_checks():
     print("two-finger checks passed")
 
 
+def build_cj_scene():
+    """A rig like CJ's FBX import (step 6, P1): hands named wrist, a spine lower/middle/upper
+    chain, and arm bones whose tails sit beside the limb instead of on the next joint. A skinned
+    strip of points along each arm checks that the mesh never moves. The instrument is an empty
+    with a long box mesh (the clarinet's tube) whose local +Y is the key side."""
+    bpy.ops.wm.read_factory_settings(use_empty=True)
+    scene = bpy.context.scene
+    arm_data = bpy.data.armatures.new("Object_3")
+    arm = bpy.data.objects.new("Object_3", arm_data)
+    scene.collection.objects.link(arm)
+    bpy.context.view_layer.objects.active = arm
+    arm.select_set(True)
+    bpy.ops.object.mode_set(mode="EDIT")
+    eb = arm_data.edit_bones
+    prev = None
+    for name, z in (("spine lower_011", 1.0), ("spine middle_012", 1.15), ("spine upper_013", 1.3)):
+        b = eb.new(name)
+        b.head, b.tail, b.parent = (0, 0, z), (0, 0, z + 0.15), prev
+        prev = b
+    chest = prev
+    joints = {}
+    for side, sx in (("left", 1), ("right", -1)):
+        sh, el, wr = Vector((0.2 * sx, 0, 1.4)), Vector((0.5 * sx, -0.05, 1.2)), Vector((0.45 * sx, -0.4, 1.25))
+        up = eb.new(f"arm {side} shoulder 2_039")
+        up.head, up.tail, up.parent = sh, sh + Vector((0.1 * sx, 0.25, 0.1)), chest     # off the elbow
+        fo = eb.new(f"arm {side} elbow_040")
+        fo.head, fo.tail, fo.parent = el, el + Vector((0.3 * sx, 0.05, -0.25)), up      # 39 cm off the wrist
+        hand = eb.new(f"arm {side} wrist_041")
+        hand.head, hand.tail, hand.parent = wr, wr + Vector((0, -0.1, 0)), fo
+        for i in range(1, 4):
+            f = eb.new(f"f_index.0{i}.{'L' if sx > 0 else 'R'}")
+            f.head = hand.tail + Vector((0, -0.03 * (i - 1), 0))
+            f.tail = f.head + Vector((0, -0.03, 0))
+            f.parent = hand if i == 1 else eb[f"f_index.0{i - 1}.{'L' if sx > 0 else 'R'}"]
+        joints[side] = (sh, el, wr)
+    bpy.ops.object.mode_set(mode="OBJECT")
+
+    # skin: points along each limb, weighted to the bone (half-half at the joints)
+    verts, groups = [], []
+    for side, (sh, el, wr) in joints.items():
+        for a, b, bone_a, bone_b in ((sh, el, f"arm {side} shoulder 2_039", f"arm {side} elbow_040"),
+                                     (el, wr, f"arm {side} elbow_040", f"arm {side} wrist_041")):
+            for t in (0.0, 0.25, 0.5, 0.75, 1.0):
+                verts.append(a.lerp(b, t) + Vector((0, 0, 0.03)))
+                groups.append({bone_a: 1.0} if t < 1.0 else {bone_a: 0.5, bone_b: 0.5})
+    mesh = bpy.data.meshes.new("Skin")
+    mesh.from_pydata([tuple(v) for v in verts], [], [])
+    skin = bpy.data.objects.new("Skin", mesh)
+    scene.collection.objects.link(skin)
+    skin.parent = arm
+    for i, g in enumerate(groups):
+        for bone, w in g.items():
+            vg = skin.vertex_groups.get(bone) or skin.vertex_groups.new(name=bone)
+            vg.add([i], w, "REPLACE")
+    skin.modifiers.new("Armature", "ARMATURE").object = arm
+
+    # the arms posed (not the rest pose), so the fix has a real deformation to keep
+    for side, sx in (("left", 1), ("right", -1)):
+        pb = arm.pose.bones
+        pb[f"arm {side} shoulder 2_039"].rotation_quaternion = Quaternion((1, 0, 0), math.radians(25 * sx))
+        pb[f"arm {side} elbow_040"].rotation_quaternion = Quaternion((0, 0, 1), math.radians(-40 * sx))
+        pb[f"arm {side} wrist_041"].rotation_quaternion = Quaternion((0, 1, 0), math.radians(15))
+
+    inst = bpy.data.objects.new("Clarinet", None)
+    scene.collection.objects.link(inst)
+    inst.location = (0, -0.3, 1.1)
+    tube_mesh = bpy.data.meshes.new("Tube")
+    tube_mesh.from_pydata([(x, y, z) for x in (-0.02, 0.02) for y in (-0.02, 0.02) for z in (-0.3, 0.3)], [], [])
+    tube = bpy.data.objects.new("Tube", tube_mesh)
+    scene.collection.objects.link(tube)
+    tube.parent = inst
+    bpy.context.view_layer.update()
+    return scene, arm, skin, inst, tube
+
+
+def offjoint_and_front_checks():
+    """Step 7a: Lock on a rig whose arm tails sit off the joints (P1) moves nothing; Guess Bones
+    finds wrists and the upper chest (P2); the instrument's front is set from the view or the
+    markers, checked before Lock, and turned forward about the tube (P10)."""
+    from midi_animator.blender import hold
+    scene, arm, skin, inst, tube = build_cj_scene()
+    s = scene.midi_animator
+    s.rig, s.instrument = arm, inst
+    pb = arm.pose.bones
+
+    def skin_points():
+        bpy.context.view_layer.update()
+        dg = bpy.context.evaluated_depsgraph_get()
+        e = skin.evaluated_get(dg)
+        m = e.to_mesh()
+        pts = [e.matrix_world @ v.co for v in m.vertices]
+        e.to_mesh_clear()
+        return pts
+
+    def world(bone):
+        bpy.context.view_layer.update()
+        return (arm.matrix_world @ pb[bone].head).copy()
+
+    # P2: wrists and the upper chest
+    assert bpy.ops.midianim.guess_hold_bones() == {"FINISHED"}
+    assert (s.hold_strap_bone, s.hold_hand_l, s.hold_hand_r) == \
+        ("spine upper_013", "arm left wrist_041", "arm right wrist_041"), (s.hold_strap_bone, s.hold_hand_l, s.hold_hand_r)
+
+    # P1: the four arm bones are off their joints
+    bad = hold.off_joint_bones(s)
+    assert sorted(n for n, _, _ in bad) == sorted(f"arm {sd} {b}" for sd in ("left", "right")
+                                                  for b in ("shoulder 2_039", "elbow_040")), bad
+    fore_off = next(d for n, _, d in bad if n == "arm left elbow_040")
+    assert fore_off > 0.3, fore_off
+    # a hidden rig can't be edited: Lock says so instead of failing half way
+    arm.hide_set(True)
+    assert "hidden" in hold.check(s), hold.check(s)
+    arm.hide_set(False)
+
+    # P10: the instrument's key side (+Y) faces the player (+Y world): Lock refuses
+    s.hold_front = "+Y"
+    angle, verdict = hold.front_status(s)
+    assert verdict == "player" and abs(angle - 180) < 1e-3, (angle, verdict)
+    assert "faces the player" in hold.check(s)
+    try:
+        bpy.ops.midianim.lock_hands()
+        raise AssertionError("Lock with the front toward the player should fail")
+    except RuntimeError as e:
+        assert "faces the player" in str(e), e
+    # From View: looking at the instrument from the back (viewer on +Y) names +Y; from the front, -Y
+    class View:
+        def __init__(self, from_dir):
+            self.view_rotation = Vector(from_dir).to_track_quat("Z", "Y")
+    assert hold.set_front_from_view(s, View((0, 1, 0)))[0] == "+Y"
+    assert hold.set_front_from_view(s, View((0.2, -1, 0.1)))[0] == "-Y"
+    s.hold_front = "+Y"
+    # Turn Front Forward: rolls about the tube's length, so the tube's centre line stays
+    ends_before = [tube.matrix_world @ Vector((0, 0, z)) for z in (-0.3, 0.3)]
+    marker = bpy.data.objects.new("Key.L1.B", None)
+    marker["midianim_slot"], marker["midianim_key"] = "L1", "B"
+    scene.collection.objects.link(marker)
+    marker.parent = inst
+    marker.matrix_world = inst.matrix_world @ Matrix.Translation((0, 0.02, 0.1)) @ Vector((0, 1, 0)).to_track_quat("Z", "Y").to_matrix().to_4x4()
+    deg = hold.turn_front_forward(bpy.context, s)
+    angle, verdict = hold.front_status(s)
+    print(f"front: turned {deg:.1f} deg, now {angle:.2f} deg from forward ({verdict})")
+    assert abs(abs(deg) - 180) < 0.5 and verdict == "forward" and angle < 0.5, (deg, angle, verdict)
+    ends_after = [tube.matrix_world @ Vector((0, 0, z)) for z in (-0.3, 0.3)]
+    assert max((a - b).length for a, b in zip(ends_before, ends_after)) < 1e-4, "the tube's centre line moved"
+    # the marker turned with it: its arrow now points forward, and From Markers reads +Y back
+    assert (marker.matrix_world.to_3x3().col[2].normalized() - Vector((0, -1, 0))).length < 1e-3
+    s.hold_front = "NONE"
+    assert hold.set_front_from_markers(s)[0] == "+Y"
+    assert hold.check(s) == "", hold.check(s)
+
+    # Lock: the hands and the skin stay (0 mm), the tails now sit on the joints
+    before_skin = skin_points()
+    before = {b: world(b) for b in ("arm left wrist_041", "arm right wrist_041", "arm left elbow_040", "arm right elbow_040")}
+    msg = hold.lock_hands(bpy.context, s)
+    assert "Moved 4 arm bone tails" in msg, msg
+    jump = max((world(b) - p).length for b, p in before.items())
+    skin_move = max((a - b).length for a, b in zip(before_skin, skin_points()))
+    print(f"off-joint rig: Lock moved the hands and elbows {jump * 1000:.4f} mm, the skin {skin_move * 1000:.4f} mm")
+    assert jump < 1e-5 and skin_move < 1e-5, (jump, skin_move)
+    assert hold.off_joint_bones(s) == []
+    for side in ("left", "right"):
+        fo, wr = arm.data.bones[f"arm {side} elbow_040"], arm.data.bones[f"arm {side} wrist_041"]
+        assert (fo.tail_local - wr.head_local).length < 1e-6
+    # the hands follow the instrument now (the forearm's tail is the wrist)
+    inst.location.x += 0.05
+    bpy.context.view_layer.update()
+    tgt = bpy.data.objects["MIDI Hold L"]
+    assert (world("arm left wrist_041") - tgt.matrix_world.translation).length < 1e-3
+    inst.location.x -= 0.05
+    # a second Lock has nothing to fix and moves nothing
+    msg = hold.lock_hands(bpy.context, s)
+    assert "Moved" not in msg
+    assert max((world(b) - p).length for b, p in before.items()) < 1e-5
+    # turning the instrument while locked is refused
+    try:
+        hold.turn_front_forward(bpy.context, s)
+        raise AssertionError("turn while locked should fail")
+    except RuntimeError as e:
+        assert "Unlock" in str(e), e
+    assert bpy.ops.midianim.unlock_hands() == {"FINISHED"}
+    print("off-joint rig and front checks passed")
+
+
 def main():
     midi_animator.register()
     scene, arm, sax, face = build_scene()
@@ -687,6 +871,7 @@ def main():
     assert state.display_name(s, parse_note_name("D4")) == "Ré4"
     clarinet_checks(scene, s, arm)
     two_finger_checks()
+    offjoint_and_front_checks()
     midi_animator.unregister()
     print("ALL TESTS PASSED")
 

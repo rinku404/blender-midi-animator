@@ -176,7 +176,7 @@ def _strap_rank(name):
 
 def _hand_rank(name):
     low = name.lower()
-    if "hand" not in low or "ik" in re.split(r"[._:\-\s]+", low):
+    if ("hand" not in low and "wrist" not in low) or "ik" in re.split(r"[._:\-\s]+", low):
         return None
     if re.fullmatch(r"(mixamorig:)?(left|right)?hand([._\-]?[lr])?", low) or re.fullmatch(
             r"(j_bip_[lr]_hand|bip\d* [lr] hand|[lr]_?hand)", low):
@@ -184,14 +184,34 @@ def _hand_rank(name):
     return 1 if "_fk" not in low else 2
 
 
+def _branches(children):
+    """True for a bone the arms or the neck hang from: the upper chest in a plain spine chain."""
+    return any(_side(c) is not None or "neck" in c.lower() or "head" in c.lower() for c in children)
+
+
 def guess_hold_bones(bones):
-    """bones: [(name, parent_name_or_None)]. Returns (strap, hand_l, hand_r); '' where nothing fits."""
+    """bones: [(name, parent_name_or_None)]. Returns (strap, hand_l, hand_r); '' where nothing fits.
+
+    Hands: a bone named hand or wrist, per side. Strap: the upper chest, by keyword
+    (STRAP_KEYWORDS); between equally named spine bones ("spine lower/middle/upper") the one the
+    arms or the neck branch from wins, then the one highest up the chain."""
+    parent = dict(bones)
+    children = {}
+    for n, p in bones:
+        children.setdefault(p, []).append(n)
+
+    def depth(n):
+        d = 0
+        while parent.get(n):
+            n, d = parent[n], d + 1
+        return d
+
     names = [n for n, _ in bones if _hold_ok(n)]
     strap = ""
-    ranked = sorted(((_strap_rank(n), n) for n in names if _strap_rank(n) is not None
-                     and _side(n) is None))
+    ranked = sorted(((_strap_rank(n), not _branches(children.get(n, ())), -depth(n), n)
+                     for n in names if _strap_rank(n) is not None and _side(n) is None))
     if ranked:
-        strap = ranked[0][1]
+        strap = ranked[0][-1]
     hands = {}
     for side in ("L", "R"):
         c = sorted((_hand_rank(n), len(n), n) for n in names if _side(n) == side and _hand_rank(n) is not None)

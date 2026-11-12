@@ -248,6 +248,79 @@ class MIDIANIM_OT_lock_hands(bpy.types.Operator):
         return {"FINISHED"}
 
 
+class MIDIANIM_OT_hold_front_from_view(bpy.types.Operator):
+    """Set Front to the side of the instrument that faces you in this 3D view: orbit until you
+    look straight at the keys, then click"""
+    bl_idname = "midianim.hold_front_from_view"
+    bl_label = "From View"
+    bl_options = {"REGISTER", "UNDO"}
+
+    @classmethod
+    def poll(cls, context):
+        return state.settings(context).instrument is not None and getattr(context.space_data, "region_3d", None)
+
+    def execute(self, context):
+        s = state.settings(context)
+        try:
+            axis, off = hold.set_front_from_view(s, context.space_data.region_3d)
+        except RuntimeError as e:
+            return _err(self, e)
+        self.report({"INFO"}, f"Front = {axis} ({off:.0f}° from this view). " + _front_line(s))
+        return {"FINISHED"}
+
+
+class MIDIANIM_OT_hold_front_from_markers(bpy.types.Operator):
+    """Set Front from the key markers' arrows (their average, thumb keys left out)"""
+    bl_idname = "midianim.hold_front_from_markers"
+    bl_label = "From Markers"
+    bl_options = {"REGISTER", "UNDO"}
+
+    @classmethod
+    def poll(cls, context):
+        return state.settings(context).instrument is not None
+
+    def execute(self, context):
+        s = state.settings(context)
+        try:
+            axis, off = hold.set_front_from_markers(s)
+        except RuntimeError as e:
+            return _err(self, e)
+        self.report({"INFO"}, f"Front = {axis} ({off:.0f}° from the markers' mean arrow). " + _front_line(s))
+        return {"FINISHED"}
+
+
+class MIDIANIM_OT_hold_turn_front(bpy.types.Operator):
+    """Roll the instrument about its length until its front faces away from the player
+    (the mouthpiece stays; key markers turn with it). Unlock first if the hands are locked"""
+    bl_idname = "midianim.hold_turn_front"
+    bl_label = "Turn Front Forward"
+    bl_options = {"REGISTER", "UNDO"}
+
+    @classmethod
+    def poll(cls, context):
+        s = state.settings(context)
+        return s.instrument is not None and s.hold_front != hold.FRONT_NONE
+
+    def execute(self, context):
+        s = state.settings(context)
+        try:
+            deg = hold.turn_front_forward(context, s)
+        except RuntimeError as e:
+            return _err(self, e)
+        line = _front_line(s)
+        if hold.front_status(s)[1] != "forward":
+            line += ". Its length points forward: tilt it down (about 22° from vertical), then turn again"
+        self.report({"INFO"}, f"Turned {s.instrument.name} {deg:+.0f}° about its length. " + line)
+        return {"FINISHED"}
+
+
+def _front_line(s):
+    angle, verdict = hold.front_status(s)
+    return {"forward": f"The front faces forward ({angle:.0f}° off)",
+            "sideways": f"The front faces sideways ({angle:.0f}° from forward)",
+            "player": f"The front faces the player ({angle:.0f}° from forward)"}.get(verdict, "Front not set")
+
+
 class MIDIANIM_OT_unlock_hands(bpy.types.Operator):
     """Remove the hand IK, rotation constraints and targets (the instrument stays on the strap)"""
     bl_idname = "midianim.unlock_hands"
@@ -764,6 +837,9 @@ classes = (
     MIDIANIM_OT_detect_fingers,
     MIDIANIM_OT_detect_bend_axis,
     MIDIANIM_OT_guess_hold_bones,
+    MIDIANIM_OT_hold_front_from_view,
+    MIDIANIM_OT_hold_front_from_markers,
+    MIDIANIM_OT_hold_turn_front,
     MIDIANIM_OT_lock_hands,
     MIDIANIM_OT_unlock_hands,
     MIDIANIM_OT_finger_bone_add,
