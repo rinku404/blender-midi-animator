@@ -284,9 +284,9 @@ def test_miss_advice():
     assert s.startswith("move the hand 19 mm up the tube"), s
     assert "down the tube" in R.miss_advice((0.0, 0.0, -0.012), up, out)
     s = R.miss_advice((0.0, -0.012, 0.001), up, out)        # target 12 mm further out than the tip: tip inside the key
-    assert "12 mm inside the key" in s and "away from the keys" in s, s
+    assert "12 mm too deep" in s and "12 mm away from the keys" in s, s
     s = R.miss_advice((0.0, 0.012, 0.0), up, out)            # target deeper in than the tip: the tip falls short
-    assert "12 mm short of the key" in s and "toward the keys" in s, s
+    assert "12 mm too far out" in s and "12 mm toward the keys" in s, s
     s = R.miss_advice((0.010, 0.004, 0.004), up, out)        # round the tube
     assert s.startswith("move the hand 11 mm toward the key, round the tube"), s
     assert "toward the key" in R.miss_advice((0.01, 0.0, 0.0))       # no frame at all

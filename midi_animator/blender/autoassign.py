@@ -2,8 +2,12 @@
 the result as pose assets ("F.<slot>.<key>.Down" / ".Up").
 
 While solving, each finger joint only turns around the rig's Bend Axis and only in the curling
-direction (the knuckle may also spread a little sideways), so fingers neither twist nor bend
-backwards. The bones' own IK settings are put back afterwards.
+direction (the knuckle may also spread sideways, plus the Knuckle Swing along the instrument,
+and the thumb's base joint may turn by Thumb Turn about its own length), so fingers neither
+twist nor bend backwards (ADR 0015). The bones' own IK settings are put back afterwards.
+
+A pose whose fingertip ends more than MISS_TOLERANCE from its target remembers the miss and
+which way to move the hand (panel 2 lists it next to the pose).
 
 Autoassign also builds "F.Rest": every finger hovering over its home key, plus the hand bones
 as they are now. It becomes the Rest pose unless you picked your own.
@@ -27,6 +31,8 @@ from . import actions, rig, state
 GEN_PROP = "midianim_generated"
 HASH_PROP = "midianim_hash"
 LOCK_PROP = "midianim_locked"
+MISS_PROP = "midianim_miss_mm"       # how far the pose's fingertip ended from its target (only if it misses)
+ADVICE_PROP = "midianim_miss_advice"
 REST_NAME = "F.Rest"
 MISS_TOLERANCE = 0.003      # m: report a fingertip that ends further than this from its target
 _IK_ATTRS = tuple(f"{k}_{a}" for k in ("lock_ik", "use_ik_limit", "ik_min", "ik_max") for a in "xyz")
@@ -72,13 +78,15 @@ def _save_values(arm, name, values):
     return act
 
 
-def _limit_chain(arm, chain, bend_axis, keep_twist):
-    """Give the chain's bones bend-only IK settings. Returns what _unlimit_chain puts back."""
+def _limit_chain(arm, chain, bend_axis, keep_twist, swing_deg=0.0, turn_deg=0.0):
+    """Give the chain's bones bend-only IK settings; the root also gets the knuckle swing
+    (fingers) or the base turn (thumb). Returns what _unlimit_chain puts back."""
     saved = {}
     for i, b in enumerate(chain):
         pb = arm.pose.bones[b]
         saved[b] = {a: getattr(pb, a) for a in _IK_ATTRS}
-        for a, v in rigs.ik_joint_settings(bend_axis, keep_twist, root=i == 0).items():
+        st = rigs.ik_joint_settings(bend_axis, keep_twist, root=i == 0, swing_deg=swing_deg, turn_deg=turn_deg)
+        for a, v in st.items():
             setattr(pb, a, v)
     return saved
 
@@ -92,7 +100,7 @@ def _unlimit_chain(arm, saved):
 
 def _solve(context, arm, chain, target_world):
     """Pose `chain` so its tip (tail of the last bone) reaches target_world. Leaves the
-    solved rotations in the bones' basis. Returns how far the tip ends from the target."""
+    solved rotations in the bones' basis. Returns the miss: target minus where the tip ends."""
     empty = bpy.data.objects.new("MIDIANIM_IK_target", None)
     context.scene.collection.objects.link(empty)
     empty.location = target_world
@@ -113,7 +121,7 @@ def _solve(context, arm, chain, target_world):
     for b, m in zip(chain, solved):           # root first: each child sees its parent's new pose
         arm.pose.bones[b].matrix = m
         context.view_layer.update()
-    return ((arm.matrix_world @ arm.pose.bones[chain[-1]].tail) - target_world).length
+    return target_world - (arm.matrix_world @ arm.pose.bones[chain[-1]].tail)
 
 
 def _restore(arm, snapshot):
@@ -146,13 +154,40 @@ def _tilt_poses(arm, s, slot, finger, bone):
     return created, skipped
 
 
+def _set_miss(act, miss_vec, up, out):
+    """Store how far this pose's fingertip ends from its target, and the advice, on the pose."""
+    mm = miss_vec.length * 1000
+    if mm * 0.001 > MISS_TOLERANCE:
+        act[MISS_PROP] = round(mm, 1)
+        act[ADVICE_PROP] = rigs.miss_advice(tuple(miss_vec), up, tuple(out))
+    else:
+        for p in (MISS_PROP, ADVICE_PROP):
+            if p in act:
+                del act[p]
+
+
+def misses(slot_id):
+    """[(pose name, mm, advice)] for this finger's generated poses that miss their target, as
+    the last Autoassign left them (a locked pose keeps what it had)."""
+    return [(a.name, a[MISS_PROP], a.get(ADVICE_PROP, "")) for a in generated_poses(slot_id)
+            if a.get(MISS_PROP)]
+
+
+def tube_up(prof, markers):
+    """Unit vector up the instrument (toward the mouthpiece) from the key markers, or None."""
+    rank = {sl.id: i for i, sl in enumerate(prof.slots)}
+    pts = [(rank.get(sl, 0), tuple(m.matrix_world.translation)) for (sl, _), m in markers.items()]
+    return rigs.tube_axis(pts)
+
+
 def autoassign(context, s, only_slot=None):
-    """Returns (created, skipped_locked, problems, rest_message)."""
+    """Returns (created, skipped_locked, problems, rest_message). problems: one line per finger."""
     arm = s.rig
     prof = state.profile(s)
     bones = rig.finger_bones(s)
     markers = rig.find_markers()
     created, skipped, problems = 0, 0, []
+    up = tube_up(prof, markers)
 
     if context.mode != "OBJECT":
         bpy.ops.object.mode_set(mode="OBJECT")
@@ -177,8 +212,11 @@ def autoassign(context, s, only_slot=None):
         snapshot = {}
         for b in chain:
             snapshot.update(actions.bone_channels(arm.pose.bones[b]))
-        worst = (0.0, "")
-        saved_ik = _limit_chain(arm, chain, s.bend_axis, s.keep_twist)
+        worst = (0.0, "", "")
+        n_miss = n_solved = 0
+        thumb = slot.finger == "thumb"
+        saved_ik = _limit_chain(arm, chain, s.bend_axis, s.keep_twist,
+                                0.0 if thumb else s.knuckle_swing, s.thumb_turn if thumb else 0.0)
         try:
             for key in slot.keys:
                 marker = markers.get((slot.id, key))
@@ -196,10 +234,15 @@ def autoassign(context, s, only_slot=None):
                         continue
                     _restore(arm, snapshot)
                     target = mw.translation.copy() if down else mw.translation + z * s.hover
-                    miss = _solve(context, arm, chain, target)
+                    miss_vec = _solve(context, arm, chain, target)
+                    miss = miss_vec.length
+                    act = _save_pose(arm, name, chain)
+                    _set_miss(act, miss_vec, up, z)
+                    n_solved += 1
+                    if miss > MISS_TOLERANCE:
+                        n_miss += 1
                     if miss > worst[0]:
-                        worst = (miss, f"{key} {'Down' if down else 'Up'}")
-                    _save_pose(arm, name, chain)
+                        worst = (miss, f"{key} {'Down' if down else 'Up'}", act.get(ADVICE_PROP, ""))
                     created += 1
         finally:
             _unlimit_chain(arm, saved_ik)
@@ -207,10 +250,34 @@ def autoassign(context, s, only_slot=None):
         if not any((slot.id, k) in markers for k in slot.keys):
             problems.append(f"{slot.label}: no key markers")
         elif worst[0] > MISS_TOLERANCE:
-            problems.append(f"{slot.label}: fingertip {worst[0] * 1000:.0f} mm off its target ({worst[1]}); "
-                            f"check the Bend Axis, or move the marker within reach")
+            problems.append(f"{slot.label}: {n_miss} of {n_solved} poses miss; worst {worst[1]}, "
+                            f"{worst[0] * 1000:.0f} mm off: {worst[2]}")
     context.view_layer.update()
     return created, skipped, problems, build_rest(s, bones)
+
+
+def status_line(created, skipped, problems):
+    """The short status-bar line: "32 poses; 3 fingers miss: see panel 2"."""
+    msg = f"{created} poses"
+    if skipped:
+        msg += f", {skipped} locked kept"
+    if problems:
+        n = len(problems)
+        msg += f"; {n} finger{'s' if n != 1 else ''} miss: see panel 2 (details in the Info log)"
+    return msg
+
+
+def report_lines(s, problems, rest_msg):
+    """The Info log lines: the Rest pose message, then each finger's summary followed by every
+    pose of it that misses, with its advice."""
+    lines = [rest_msg]
+    labels = {sl.label: sl.id for sl in state.profile(s).slots}
+    for p in problems:
+        lines.append(p)
+        slot = labels.get(p.split(":", 1)[0])
+        for name, mm, advice in misses(slot) if slot else ():
+            lines.append(f"    {name}: {mm:.0f} mm off; {advice}")
+    return lines
 
 
 def _hand_bones(s, bones):

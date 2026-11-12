@@ -357,7 +357,8 @@ def miss_advice(miss, up=None, out=None):
         way = "up the tube, toward the mouthpiece" if along > 0 else "down the tube, toward the bell"
         return f"move the hand {abs(along) * 1000:.0f} mm {way} (or the marker the other way)"
     if abs(outward) >= 0.6 * total:
+        d = f"{abs(outward) * 1000:.0f} mm"
         if outward > 0:
-            return f"the finger ends {abs(outward) * 1000:.0f} mm inside the key: move the hand that far away from the keys"
-        return f"the finger ends {abs(outward) * 1000:.0f} mm short of the key: move the hand that far toward the keys"
+            return f"the fingertip ends {d} too deep: move the hand {d} away from the keys"
+        return f"the fingertip ends {d} too far out: move the hand {d} toward the keys"
     return f"move the hand {mm} toward the key, round the tube (or the marker toward the hand)"
