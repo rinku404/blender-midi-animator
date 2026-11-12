@@ -211,7 +211,8 @@ class MIDIANIM_PT_fingers(MIDIANIM_PT_base, bpy.types.Panel):
         r.prop(s, "force_autoassign")
         r = box.row(align=True)
         r.prop(s, "knuckle_swing", text="Swing °")
-        r.prop(s, "thumb_turn", text="Thumb °")
+        r.prop(s, "knuckle_lift", text="Lift °")
+        box.row(align=True).prop(s, "thumb_turn", text="Thumb Turn °")
         box.label(text="Also builds F.Rest: fingers up over their home keys")
         poses = autoassign.generated_poses(f.slot)
         missed = [a for a in poses if a.get(autoassign.MISS_PROP)]

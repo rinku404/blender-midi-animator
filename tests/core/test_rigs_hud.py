@@ -266,6 +266,20 @@ def test_knuckle_swing_and_thumb_turn():
     assert not free["lock_ik_y"] and not free["use_ik_limit_y"]        # Keep Twist off: twist stays free
 
 
+def test_knuckle_lift():
+    import math
+    lift = math.radians(25.0)
+    up = R.ik_joint_settings("X", root=True, lift_deg=25.0)
+    assert abs(up["ik_min_x"] + lift) < 1e-9 and abs(up["ik_max_x"] - math.radians(R.MAX_BEND_DEG)) < 1e-9
+    neg = R.ik_joint_settings("-Z", root=True, lift_deg=25.0)             # negative curl: backwards is +
+    assert abs(neg["ik_max_z"] - lift) < 1e-9 and neg["ik_min_z"] < -math.radians(90)
+    down = R.ik_joint_settings("X", root=True)                             # Down poses: no lift
+    assert down["ik_min_x"] == 0.0
+    hinge = R.ik_joint_settings("X", root=False, lift_deg=25.0)            # hinges never bend backwards
+    assert hinge["ik_min_x"] == 0.0
+    assert R.ik_joint_settings("-X", root=True, lift_deg=-5.0)["ik_max_x"] == 0.0
+
+
 def test_tube_axis():
     # Markers down a tube along -Z, left hand (rank 0..3) above the right (rank 4..7)
     pts = [(i, (0.01 * (i % 2), 0.0, 1.0 - 0.03 * i)) for i in range(8)]

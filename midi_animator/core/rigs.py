@@ -226,6 +226,7 @@ MAX_BEND_DEG = 120.0       # how far one joint may curl during Autoassign
 ROOT_SPREAD_DEG = 25.0     # side-to-side freedom of a finger's root (knuckle) joint
 KNUCKLE_SWING_DEG = 15.0   # default extra knuckle swing along the instrument (ADR 0015)
 THUMB_TURN_DEG = 30.0      # default turn of the thumb's base joint about its own length (ADR 0015)
+KNUCKLE_LIFT_DEG = 25.0    # default backwards bend of a root joint, Up poses only (ADR 0015)
 _MIN_CURL = 0.02           # sin of the summed rest curl below which a chain counts as straight
 
 
@@ -261,7 +262,7 @@ def detect_bend_axis(joints):
     return "Z" if sz > 0 else "-Z"
 
 
-def ik_joint_settings(bend_axis, keep_twist=True, root=False, swing_deg=0.0, turn_deg=0.0):
+def ik_joint_settings(bend_axis, keep_twist=True, root=False, swing_deg=0.0, turn_deg=0.0, lift_deg=0.0):
     """Pose-bone IK settings for one finger joint during Autoassign, as {attribute: value}.
 
     Middle and end joints are hinges: they turn only around the bend axis, and only in the
@@ -269,14 +270,17 @@ def ik_joint_settings(bend_axis, keep_twist=True, root=False, swing_deg=0.0, tur
     sideways by ROOT_SPREAD_DEG plus `swing_deg`, the knuckle swing along the instrument
     (fingers lie across the tube, so the knuckle's sideways axis runs along it). Keep Twist
     locks the twist around the bone (Y), except a root given `turn_deg` (the thumb's base
-    joint), which may turn that far either way about its own length (ADR 0015)."""
+    joint), which may turn that far either way about its own length. A root given `lift_deg`
+    may also bend that far backwards (the knuckle lift Autoassign allows in Up poses only)
+    (ADR 0015)."""
     if bend_axis not in BEND_AXES:
         raise ValueError(f"bend axis must be one of {BEND_AXES}, not {bend_axis!r}")
     bend = bend_axis[-1].lower()
     side = "z" if bend == "x" else "x"
-    lo, hi = 0.0, math.radians(MAX_BEND_DEG)
+    back = math.radians(max(0.0, lift_deg)) if root else 0.0
+    lo, hi = -back, math.radians(MAX_BEND_DEG)
     if bend_axis.startswith("-"):
-        lo, hi = -hi, 0.0
+        lo, hi = -hi, back
     out = {}
     for a in "xyz":
         out[f"lock_ik_{a}"] = False

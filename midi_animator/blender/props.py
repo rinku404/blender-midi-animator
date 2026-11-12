@@ -322,6 +322,11 @@ class MIDIANIM_Settings(bpy.types.PropertyGroup):
         description="Degrees. How far a finger's knuckle (root joint) may swing along the "
                     "instrument, on top of its normal sideways spread, so the index can roll up "
                     "onto keys above its hole. Middle and end joints still only curl")
+    knuckle_lift: FloatProperty(
+        name="Knuckle Lift", default=25.0, min=0.0, max=25.0, step=100, precision=0,
+        description="Degrees. How far a finger's or the thumb's root joint may bend backwards "
+                    "(lift) in Up poses only, so a curled finger can still rise off its key. "
+                    "Down poses never bend backwards")
     thumb_turn: FloatProperty(
         name="Thumb Turn", default=30.0, min=0.0, max=60.0, step=100, precision=0,
         description="Degrees. How far the thumb's base joint may turn about its own length "

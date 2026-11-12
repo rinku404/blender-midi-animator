@@ -78,14 +78,16 @@ def _save_values(arm, name, values):
     return act
 
 
-def _limit_chain(arm, chain, bend_axis, keep_twist, swing_deg=0.0, turn_deg=0.0):
+def _limit_chain(arm, chain, bend_axis, keep_twist, swing_deg=0.0, turn_deg=0.0, lift_deg=0.0):
     """Give the chain's bones bend-only IK settings; the root also gets the knuckle swing
-    (fingers) or the base turn (thumb). Returns what _unlimit_chain puts back."""
+    (fingers), the base turn (thumb) and, for Up poses, the knuckle lift. Returns what
+    _unlimit_chain puts back."""
     saved = {}
     for i, b in enumerate(chain):
         pb = arm.pose.bones[b]
         saved[b] = {a: getattr(pb, a) for a in _IK_ATTRS}
-        st = rigs.ik_joint_settings(bend_axis, keep_twist, root=i == 0, swing_deg=swing_deg, turn_deg=turn_deg)
+        st = rigs.ik_joint_settings(bend_axis, keep_twist, root=i == 0, swing_deg=swing_deg,
+                                    turn_deg=turn_deg, lift_deg=lift_deg)
         for a, v in st.items():
             setattr(pb, a, v)
     return saved
@@ -216,8 +218,8 @@ def autoassign(context, s, only_slot=None):
         worst = (0.0, "", "")
         n_miss = n_solved = 0
         thumb = slot.finger == "thumb"
-        saved_ik = _limit_chain(arm, chain, s.bend_axis, s.keep_twist,
-                                0.0 if thumb else s.knuckle_swing, s.thumb_turn if thumb else 0.0)
+        limits = (s.bend_axis, s.keep_twist, 0.0 if thumb else s.knuckle_swing, s.thumb_turn if thumb else 0.0)
+        saved_ik = _limit_chain(arm, chain, *limits)
         try:
             for key in slot.keys:
                 marker = markers.get((slot.id, key))
@@ -235,6 +237,7 @@ def autoassign(context, s, only_slot=None):
                         continue
                     _restore(arm, snapshot)
                     target = mw.translation.copy() if down else mw.translation + z * s.hover
+                    _limit_chain(arm, chain, *limits, 0.0 if down else s.knuckle_lift)   # lift: Up only
                     miss_vec = _solve(context, arm, chain, target)
                     miss = miss_vec.length
                     act = _save_pose(arm, name, chain)
