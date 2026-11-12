@@ -3,8 +3,8 @@ step: 7b
 title: Breathing that looks real
 status: done
 branch: plan/step-07b-breathing
-pr: pending (draft PR into main; the number is in the PR description)
-commits: a64706a..b8b558c
+pr: https://github.com/rinku404/blender-midi-animator/pull/16 (draft)
+commits: a64706a..HEAD of the branch (4 code commits, then the report)
 date: 2026-11-12
 blender: 5.2.3 LTS, C:\Program Files\Blender Foundation\Blender 5.2\blender.exe
 tests_core: 77 passed
