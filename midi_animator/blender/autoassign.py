@@ -185,6 +185,7 @@ def autoassign(context, s, only_slot=None):
     arm = s.rig
     prof = state.profile(s)
     bones = rig.finger_bones(s)
+    context.view_layer.update()          # markers moved from a script: read their new matrices
     markers = rig.find_markers()
     created, skipped, problems = 0, 0, []
     up = tube_up(prof, markers)
@@ -263,7 +264,7 @@ def status_line(created, skipped, problems):
         msg += f", {skipped} locked kept"
     if problems:
         n = len(problems)
-        msg += f"; {n} finger{'s' if n != 1 else ''} miss: see panel 2 (details in the Info log)"
+        msg += f"; {n} {'finger misses' if n == 1 else 'fingers miss'}: see panel 2 (details in the Info log)"
     return msg
 
 
