@@ -1,11 +1,11 @@
 """Hold the Instrument: the instrument hangs from a strap bone and both hands stay locked to it.
 
-- The instrument gets a Child Of constraint on the strap bone with *scale off*, so the Chest
-  (breathing) effect, which scales that bone, never scales the instrument (ADR 0011).
+- The instrument gets a Child Of constraint on the strap bone with *scale off*, so Breathing, which
+  scales that bone, never scales the instrument (ADR 0011).
 - One target empty per hand ("MIDI Hold L/R") is parented to the instrument at the hand's current
   place. A 2-bone IK on the forearm reaches the target and the hand copies its rotation.
-- The arm chain's root (upper arm) stops inheriting scale while locked, so breathing (the Chest
-  effect scales the chest) never scales the arm: Blender's IK misses its target under a
+- The arm chain's root (upper arm) stops inheriting scale while locked, so breathing (it scales the
+  ribcage) never scales the arm: Blender's IK misses its target under a
   non-uniformly scaled parent. Unlock puts the bone's setting back.
 - Everything is created from the current pose, so locking moves nothing.
 - Arm bones whose tail sits off the next joint (CJ's FBX import: the forearm's tail 39 cm from
@@ -31,6 +31,7 @@ PREFIX = "MIDI Hold"
 STRAP_CON = f"{PREFIX} Strap"
 TARGETS = (("L", "hold_hand_l"), ("R", "hold_hand_r"))
 INHERIT_PROP = "midianim_inherit_scale"     # on the arm's root bone: its setting before Lock
+BREATH_INHERIT_PROP = "midianim_breath_inherit"     # set by Add Breathing: Unlock must keep Inherit Scale off
 FRONT_NONE = "NONE"
 
 
@@ -356,7 +357,7 @@ def _stop_scale_inheritance(pb):
 def _restore_scale_inheritance(arm):
     for bone in arm.data.bones:
         if INHERIT_PROP in bone:
-            bone.inherit_scale = bone[INHERIT_PROP]
+            bone.inherit_scale = "NONE" if BREATH_INHERIT_PROP in bone else bone[INHERIT_PROP]
             del bone[INHERIT_PROP]
 
 

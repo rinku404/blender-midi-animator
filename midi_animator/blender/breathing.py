@@ -22,7 +22,7 @@ from . import hold, state
 
 LUNG = "breath_lung"
 SETUP = "midianim_breath"           # on the rig: JSON of everything Add Breathing changed
-INHERIT = "midianim_breath_inherit"  # on a bone: its Inherit Scale before Add Breathing
+INHERIT = hold.BREATH_INHERIT_PROP  # on a bone: its Inherit Scale before Add Breathing
 EFFECT = "Breathing"
 PARTS = ("chest", "belly", "shoulders", "torso")
 RAD = math.pi / 180.0
@@ -193,6 +193,9 @@ def setup(context, s):
     middle, lower = _spine_chain(arm, ribs_name)
     belly = lower or middle
     shoulders = [_shoulder(pb[n], ribs_name) for n in (s.hold_hand_l, s.hold_hand_r)]
+    # a shoulder that is the arm's own IK root (no clavicle) would just be re-solved by the IK: no lift
+    lifts = [sh if sh is not None and sh != hold._arm_root(pb[h]) else None
+             for sh, h in zip(shoulders, (s.hold_hand_l, s.hold_hand_r))]
     forward, side, how = _body_frame(s, [sh.bone if sh else None for sh in shoulders])
     notes = [f"front {how}"]
 
@@ -244,7 +247,7 @@ def setup(context, s):
         lo, hi = sign * empty * RAD, sign * full * RAD
         drive_rotation(bone.name, ax, lambda r, lo=lo, hi=hi:
                        f"{r:.6f} + ({lo:.6f} + {hi - lo:.6f} * lung) * part * master", "torso")
-    for sh in shoulders:
+    for sh in lifts:
         if sh is None:
             continue
         child = sh.children[0].bone.head_local if sh.children else sh.bone.tail_local
@@ -252,8 +255,8 @@ def setup(context, s):
         ax, sign = geom.lift_axis(axes(sh.name), tuple(d.normalized()) if d.length > 1e-9 else side, UP)
         drive_rotation(sh.name, ax, lambda r, k=sign * geom.SHOULDER_LIFT * RAD:
                        f"{r:.6f} + {k:.6f} * lung * part * master", "shoulders")
-    if not all(shoulders):
-        notes.append("shoulders not found between the hands and the ribcage: no shoulder lift")
+    if not all(lifts):
+        notes.append("no shoulder bone above the upper arm on every side: no shoulder lift there")
     arm[SETUP] = json.dumps(info)
 
     # the effect that bakes the signal
