@@ -246,6 +246,52 @@ def test_ik_joint_settings():
         pass
 
 
+def test_knuckle_swing_and_thumb_turn():
+    import math
+    # Knuckle swing widens the root's sideways limit (along the instrument); hinges are unchanged
+    root = R.ik_joint_settings("X", root=True, swing_deg=15.0)
+    assert abs(root["ik_max_z"] - math.radians(40.0)) < 1e-9 and abs(root["ik_min_z"] + math.radians(40.0)) < 1e-9
+    assert root["lock_ik_y"] and not root["use_ik_limit_y"]            # Keep Twist still locks the twist
+    hinge = R.ik_joint_settings("X", root=False, swing_deg=15.0, turn_deg=30.0)
+    assert hinge["lock_ik_z"] and hinge["lock_ik_y"]                    # swing and turn are root-only
+    assert R.ik_joint_settings("-Z", root=True, swing_deg=-5.0)["ik_max_x"] == R.ik_joint_settings("-Z", root=True)["ik_max_x"]
+    # Thumb turn: the base joint may twist about its own length, limited, with Keep Twist on
+    thumb = R.ik_joint_settings("X", keep_twist=True, root=True, turn_deg=30.0)
+    assert not thumb["lock_ik_y"] and thumb["use_ik_limit_y"]
+    assert abs(thumb["ik_max_y"] - math.radians(30.0)) < 1e-9 and abs(thumb["ik_min_y"] + math.radians(30.0)) < 1e-9
+    assert R.locked_axes("X", root=True, turn_deg=30.0) == []
+    assert R.locked_axes("X", root=True) == ["y"]
+    assert R.ik_joint_settings("X", root=True, turn_deg=0.0)["lock_ik_y"]
+    free = R.ik_joint_settings("X", keep_twist=False, root=True, turn_deg=30.0)
+    assert not free["lock_ik_y"] and not free["use_ik_limit_y"]        # Keep Twist off: twist stays free
+
+
+def test_tube_axis():
+    # Markers down a tube along -Z, left hand (rank 0..3) above the right (rank 4..7)
+    pts = [(i, (0.01 * (i % 2), 0.0, 1.0 - 0.03 * i)) for i in range(8)]
+    u = R.tube_axis(pts)
+    assert u[2] > 0.99, u                       # points up the tube, toward the mouthpiece
+    pts = [(i, (0.0, 0.0, 0.5 + 0.03 * i)) for i in range(4)]
+    assert R.tube_axis(pts)[2] < -0.99          # rank grows upward here, so "up the tube" is -Z
+    assert R.tube_axis([(0, (0, 0, 0))]) is None
+    assert R.tube_axis([(0, (1, 1, 1)), (1, (1, 1, 1))]) is None
+
+
+def test_miss_advice():
+    up, out = (0.0, 0.0, 1.0), (0.0, -1.0, 0.0)
+    assert R.miss_advice((0.0, 0.0, 0.0), up, out) == ""
+    s = R.miss_advice((0.001, 0.0, 0.019), up, out)
+    assert s.startswith("move the hand 19 mm up the tube"), s
+    assert "down the tube" in R.miss_advice((0.0, 0.0, -0.012), up, out)
+    s = R.miss_advice((0.0, -0.012, 0.001), up, out)        # target 12 mm further out than the tip: tip inside the key
+    assert "12 mm inside the key" in s and "away from the keys" in s, s
+    s = R.miss_advice((0.0, 0.012, 0.0), up, out)            # target deeper in than the tip: the tip falls short
+    assert "12 mm short of the key" in s and "toward the keys" in s, s
+    s = R.miss_advice((0.010, 0.004, 0.004), up, out)        # round the tube
+    assert s.startswith("move the hand 11 mm toward the key, round the tube"), s
+    assert "toward the key" in R.miss_advice((0.01, 0.0, 0.0))       # no frame at all
+
+
 def test_overlay_colorspace_exact_views():
     assert H.overlay_colorspace("Standard") == ("sRGB", True, "")
     assert H.overlay_colorspace("ACES 2.0") == ("ACES 2.0 sRGB", True, "")
