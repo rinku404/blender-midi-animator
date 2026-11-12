@@ -38,8 +38,8 @@ One track/channel selection + **Transpose** at the top; per-effect override unde
 - **Up** = hover a set distance along the marker's Z; optional authored Up pose per finger.
 - **Autoassign** temporarily solves IK onto each marker (Down) and its hover point (Up) and
   saves the visual result as a **pose asset** per finger × key × state. Joints only curl; the
-  knuckle may also swing along the instrument and the thumb's base turn about its length, both
-  limited by settings (ADR 0015). Poses that miss their key are listed per finger with which way
+  knuckle may also swing along the instrument, and lift (bend backwards) in Up poses only, and the
+  thumb's base may turn about its length, all limited by settings (ADR 0015). Poses that miss their key are listed per finger with which way
   to move the hand.
 - Generated poses carry a **lock**, set automatically when the user edits them; Autoassign
   skips locked poses unless forced.

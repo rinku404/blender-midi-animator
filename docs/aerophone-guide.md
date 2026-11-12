@@ -51,13 +51,19 @@ breathes with its chest, and a note HUD you can lay over the video.
      rotate one finger joint in Pose Mode to see which axis curls it, and pick that one
      (with a minus if the curl is a negative rotation).
    - **Keep Twist** (on by default) also stops the bones twisting around their own length.
-   - **Swing °** (Knuckle Swing, 15° by default): how much further each finger's knuckle may swing
-     sideways, which on a held instrument is along the tube. This lets the left index roll up from
-     its hole onto the throat A and G# keys. The middle and end joints still only curl.
-   - **Thumb °** (Thumb Turn, 30° by default): how far the thumb's base joint may turn about its own
-     length, so the thumb reaches round the back to its hole and the register key. It is the one
-     twist Keep Twist allows. Raise it if a thumb pose still misses and the thumb doesn't look
-     twisted; set 0 to lock it.
+   - Three reach settings sit in the Autoassign box of panel **2. Fingers & Keys** (sidebar **N** ▸
+     **MIDI** tab), just under **Keep Twist** and **Overwrite Locked**. **Swing °** and **Lift °**
+     share a row, and **Thumb Turn °** is on the row below:
+     - **Swing °** (Knuckle Swing, 15° by default, up to 45°): how much further each finger's knuckle
+       may swing sideways, which on a held instrument is along the tube. This lets the left index roll
+       up from its hole onto the throat A and G# keys. The middle and end joints still only curl.
+     - **Lift °** (Knuckle Lift, 25° by default, up to 25°): how far a finger's or the thumb's knuckle
+       may bend backwards, **in Up (hover) poses only**, so a curled finger can still rise off its key.
+       Down poses never bend backwards. Set 0 for no lift.
+     - **Thumb Turn °** (30° by default, up to 60°): how far the thumb's base joint may turn about its
+       own length, so the thumb reaches round the back to its hole and the register key. It is the
+       one twist Keep Twist allows. Raise it if a thumb pose still misses and the thumb doesn't look
+       twisted; set 0 to lock it.
    - If a fingertip can't reach its target, the status bar says how many fingers miss. Panel 2
      marks each missing pose under the finger's poses with "… mm off" and says which way and how far
      to move the hand (up or down the tube, toward or away from the keys, or round the tube). The
@@ -338,7 +344,7 @@ Export needs Blender's UI (it draws with the GPU), not `blender -b`.
 - **The fingers are over the back of the instrument:** the front wasn't set. **Unlock**, set **Front** (From View) and click **Turn Front Forward**, re-pose the hands, **Lock**.
 - **A finger doesn't move:** check its bones (or **Shares Bones With**) in panel 2 and that its markers exist, then run Autoassign. Bake lists missing poses; Analyze lists slots with no bones as *Not animated*.
 - **The hand tilts the wrong way on thumb keys:** negate the thumb slot's **Press Tilt** (its sign follows the Bend Axis, which is read from the fingers, not the hand).
-- **The fingertip misses the key:** panel 2 shows "… mm off" next to the pose and which way to move the hand. Move the hand (or the marker) and run Autoassign again; unlock the pose if you edited it. A thumb that can't get round the back may need more **Thumb °**, and an index that can't roll up the tube more **Swing °**. If the finger bends the wrong way, check the **Bend Axis**.
+- **The fingertip misses the key:** panel 2 shows "… mm off" next to the pose and which way to move the hand. Move the hand (or the marker) and run Autoassign again; unlock the pose if you edited it. A thumb that can't get round the back may need more **Thumb Turn °**, an index that can't roll up the tube more **Swing °**, and an Up pose that stays too close to its key more **Lift °** (up to 25°). If the finger bends the wrong way, check the **Bend Axis**.
 - **Fingers bend backwards or sideways:** the **Bend Axis** is wrong for this rig. Click **Detect**, or pick it by hand, and run Autoassign with **Overwrite Locked**.
 - **Wrong notes fingered:** adjust **Transpose**.
 - **Cheeks don't move:** the effect's object must have the shape key. Check the status line for the blow source.

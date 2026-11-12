@@ -1,8 +1,8 @@
-# 0015. Finger reach: knuckle swing, thumb turn, and misses listed per pose
+# 0015. Finger reach: knuckle swing and lift, thumb turn, and misses listed per pose
 
 Status: accepted (2026-11-12, plan step 7c). Supersedes the joint-limit part of the 2026-11-07 note
-in [0004](0004-key-markers-and-autoassign.md) ("the knuckle may also spread ±25°; Keep Twist locks
-the twist") and its one-line miss report. Everything else in 0004 stands.
+in [0004](0004-key-markers-and-autoassign.md) ("only curl, 0 to 120°; the knuckle may also spread
+±25°; Keep Twist locks the twist") and its one-line miss report. Everything else in 0004 stands.
 
 ## Context
 
@@ -31,8 +31,9 @@ the Bend Axis" (P11, P12, P13).
   - **Why 30°:** the thumb's base (carpometacarpal) joint rolls the thumb about its length as it
     opposes. 30° is a moderate share of that roll, small enough not to look twisted. On the user's
     file it puts the thumb's two Down poses on their keys (Hole 5.3 → 0.0 mm, Register 5.2 → 1.2 mm).
-    The Up poses use the full 30° and still miss (Hole Up 6.0, Register Up 11.6 mm). 45° brings Hole Up
-    to ≤ 4 mm and Register Up to 7.8 mm. Because the setting goes to 60°, the user can trade looks for reach.
+    Its Up poses also need the Knuckle Lift (below): with it they reach their hover points within
+    0.1 mm, instead of 6.0 and 11.6 mm without. The setting goes to 60°, so the user can trade looks
+    for reach.
 - **Keep Twist still holds** for every other bone. With Keep Twist off, twist stays free as before.
 - **Misses are stored on the pose:** a pose whose fingertip ends more than 3 mm from its target keeps
   `midianim_miss_mm` and `midianim_miss_advice`. Panel 2 lists them under the finger's poses, the
@@ -44,15 +45,21 @@ the Bend Axis" (P11, P12, P13).
   hand that far up or down the tube, or toward or away from the keys. Otherwise it says to move the
   hand toward the key, round the tube.
 
-## Not done
-
-- **No knuckle lift (hyperextension).** The left index's G# Up pose on the step-12 file reaches its
-  hover point only if the knuckle may bend backwards about 25°. The thumb's Register Up pose is the
-  same. Bend-only stays. "Knuckle lift up to about 25°, Up poses only, as a setting" is a follow-up
-  for the user to decide.
+- **Knuckle Lift** (scene setting, default **25°**, 0 to 25°; the user's choice, 2026-11-12): in
+  **Up (hover) poses only**, the root joint of every finger and of the thumb may bend backwards
+  (hyperextend) by up to this angle. A real knuckle lifts a finger off its key this way. Without it, a
+  finger curled round a key could only rise by uncurling, and the thumb's Up poses missed by 6 and
+  12 mm. **Down poses keep the bend-only rule:** Autoassign sets the IK limits per pose, with no lift
+  for Down. On the user's file the Up poses use up to 23.5° (thumb Hole Up), and no Down pose bends
+  backwards.
+  - This is the only exception to ADR 0004's "fingers never bend backwards". It is limited to the
+    root and to hovering, where a lifted finger looks natural.
 
 ## Consequences
 
 - Locked poses keep their old miss values; they are not re-solved.
-- The hover target of a curled finger can still be out of reach; the advice then tells the user how far
-  to move the hand.
+- A hover target can still be out of reach, for example when the finger is already fully curled
+  (the right pinky's Up poses: both hinges at 120°). The advice then tells the user how far to move
+  the hand.
+- With Keep Twist off, the solver leaves up to about 1.2° of sideways turn on a hinge in Up poses
+  (0° with Keep Twist on).

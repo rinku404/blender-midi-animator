@@ -2,9 +2,10 @@
 the result as pose assets ("F.<slot>.<key>.Down" / ".Up").
 
 While solving, each finger joint only turns around the rig's Bend Axis and only in the curling
-direction (the knuckle may also spread sideways, plus the Knuckle Swing along the instrument,
-and the thumb's base joint may turn by Thumb Turn about its own length), so fingers neither
-twist nor bend backwards (ADR 0015). The bones' own IK settings are put back afterwards.
+direction (the knuckle may also spread sideways, plus the Knuckle Swing along the instrument;
+in Up poses it may also lift backwards by the Knuckle Lift; the thumb's base joint may turn by
+Thumb Turn about its own length), so fingers neither twist nor bend backwards beyond those
+limits (ADR 0015). The bones' own IK settings are put back afterwards.
 
 A pose whose fingertip ends more than MISS_TOLERANCE from its target remembers the miss and
 which way to move the hand (panel 2 lists it next to the pose).

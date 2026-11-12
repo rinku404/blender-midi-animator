@@ -37,7 +37,7 @@ blender --command extension validate midi_animator                   # manifest 
 New logic goes in `core/` with a pytest test whenever it doesn't need Blender.
 
 ## Status (2026-11-12)
-- `core/`: done, 80 tests passing (step 7c: knuckle swing / thumb turn limits and miss advice in `rigs.py`; step 7b: breath planner `signal.plan_breaths`, `breathing.py`) (sax chart Bb3–F#6 since step 5; B♭ clarinet profile, Boehm chart
+- `core/`: done, 81 tests passing (step 7c: knuckle swing / lift / thumb turn limits and miss advice in `rigs.py`; step 7b: breath planner `signal.plan_breaths`, `breathing.py`) (sax chart Bb3–F#6 since step 5; B♭ clarinet profile, Boehm chart
   E3–C6 and default Transpose +2, since step 10; shared finger slots, numbered fingers and the thumb
   tilt since step 11; hold geometry `hold.py` since step 7a: instrument front, off-joint arm tails).
 - `blender/`: `tests/test_in_blender.py` passes in Blender 5.2.3 (2026-11-11, sax, clarinet and a two-finger hand), and the built
