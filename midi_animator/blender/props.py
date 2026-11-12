@@ -278,6 +278,15 @@ class MIDIANIM_Settings(bpy.types.PropertyGroup):
     hold_strap_bone: StringProperty(name="Strap Bone", description="Bone the instrument hangs from (upper chest)")
     hold_hand_l: StringProperty(name="Left Hand", description="Left hand bone (the forearm above it gets the IK)")
     hold_hand_r: StringProperty(name="Right Hand", description="Right hand bone (the forearm above it gets the IK)")
+    hold_front: EnumProperty(
+        name="Front",
+        items=[("NONE", "Not Set", "No front check before Lock")]
+        + [(a, a, f"The instrument's local {a} axis points out through the keys") for a in
+           ("+X", "-X", "+Y", "-Y", "+Z", "-Z")],
+        default="NONE",
+        description="Which of the instrument's own axes points out through the keys (tone holes). "
+                    "Set it with From View (look straight at the keys first) or From Markers; "
+                    "Lock then checks that the keys face away from the player")
     fingers: CollectionProperty(type=MIDIANIM_FingerBones)
     finger_index: IntProperty(default=0)
     hover: FloatProperty(name="Hover Height", default=0.012, min=0.0, unit="LENGTH",
