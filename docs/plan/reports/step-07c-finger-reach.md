@@ -3,7 +3,7 @@ step: 7c
 title: Finger reach (P12, P11, P13)
 status: partial
 branch: plan/step-07c-finger-reach
-pr: (draft, see below)
+pr: 17 (draft)
 commits: 8cace65..HEAD
 date: 2026-11-12
 blender: 5.2.3, "C:\Program Files\Blender Foundation\Blender 5.2\blender.exe"
