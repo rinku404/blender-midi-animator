@@ -1,6 +1,6 @@
 # 0007. Blow is optional: CC2 by default, never a silent fallback, Direct or Lung mode
 
-Status: accepted (2026-11-06)
+Status: accepted (2026-11-06). The Lung mode and Chest preset parts are superseded by [0014](0014-breathing-planned-signal-and-live-drivers.md) (2026-11-12).
 
 ## Context
 

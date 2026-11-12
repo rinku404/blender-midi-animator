@@ -15,3 +15,4 @@ Why MIDI Animator v1 is built the way it is. Agreed 2026-11-06 (see also [../SPE
 - [0011. Hold the instrument: strap Child Of without scale, hands locked by IK](0011-hold-the-instrument.md)
 - [0012. Target: CJ playing a B♭ clarinet](0012-target-cj-and-clarinet.md)
 - [0013. Hands with fewer fingers: slots share a bone chain, the thumb is the hand's tilt](0013-shared-finger-slots.md)
+- [0014. Breathing: a planned breath signal, one property, live drivers](0014-breathing-planned-signal-and-live-drivers.md)

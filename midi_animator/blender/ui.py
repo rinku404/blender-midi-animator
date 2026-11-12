@@ -270,7 +270,7 @@ class MIDIANIM_PT_blow(MIDIANIM_PT_base, bpy.types.Panel):
             col.prop(s, "breath_intensity", slider=True)
             for part in breathing.PARTS:
                 col.prop(s, f"breath_{part}", slider=True)
-            box.label(text="Live: no re-bake needed. Bake once to record the breaths", icon="INFO")
+            box.label(text="Sliders are live: no re-bake", icon="INFO")
 
     def draw(self, context):
         s = state.settings(context)

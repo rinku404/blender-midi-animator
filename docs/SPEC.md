@@ -59,8 +59,11 @@ One track/channel selection + **Transpose** at the top; per-effect override unde
 - Velocity shape: rise over attack → decay to **Sustain** (default 0.6) while held → release.
 - Target picker: Object → Shape Key | Bone → Channel | Property (raw data path under Advanced).
 - Per effect: min/max, attack/release, threshold, curve, normalize, blend.
-- **Mode:** Direct (Cheeks default) or **Lung** (lung volume drains with integrated blow,
-  refills during rests; Chest default).
+- **Mode:** Direct (Cheeks default) or **Lung**: the breath planner (breathes in at every break
+  in the music, drains with the blow, lung size fitted per take; ADR 0014).
+- **Breathing** (panel 4): *Add Breathing* sets up drivers on one baked breath property that move
+  the ribcage, belly, shoulders and torso, with live Intensity / Chest / Belly / Shoulders / Torso
+  sliders; axes are read from the rig's real bone orientation; head and arms keep their size.
 
 ## Baking
 Into `MIDI: …` NLA tracks, re-bakeable; the user's active action is pushed to a `Base:` track.

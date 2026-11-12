@@ -132,9 +132,9 @@ mouth and bell near the right hip; same hands (left on top, right below), thumbs
    what was done. To adjust a grip afterwards, click its sphere and press **G** (the hand follows).
    **Unlock** removes the spheres and constraints (the instrument stays on the strap).
 
-The Chest breathing effect scales the chest bone but never the instrument or the arms: while
-locked, each upper arm's *Inherit Scale* is set to *None* (Blender's IK misses its target under a
-scaled parent), so the hands stay on their targets. **Unlock** puts the setting back.
+Breathing (section 5) swells the ribcage but never the instrument or the arms: while locked, each
+upper arm's *Inherit Scale* is set to *None* (Blender's IK misses its target under a scaled parent), so
+the hands stay on their targets. **Unlock** puts the setting back (unless Breathing is on, which needs it off).
 
 ### Hands with fewer fingers
 
@@ -233,17 +233,67 @@ slot. Place the markers like this (arrow out of the key or hole, as usual):
 
 ## 5. Blow
 
-**4. Blow**: click **Cheeks** (select the face mesh first) and **Chest**.
+Open panel **4. Blow** (the **MIDI** tab of the 3D Viewport sidebar; press **N** over the viewport if the
+sidebar is hidden, then click the panel's title to unfold it). It has two parts: **Breathing**, a box at the
+top that moves the whole upper body, and the effect list below it (for example the **Cheeks**).
+
+### Breathing: chest, belly, shoulders and torso
+
+The character breathes in at every break in your playing, as a player does, and breathes out as the notes
+use the air. After the last note it keeps breathing slowly. You don't set anything: the plugin reads your
+notes and your breath curve (CC2).
+
+1. **Check the Hold bones first.** In panel **2. Fingers & Keys**, box **Hold the instrument**, the
+   **Strap Bone** (the upper chest) and both **Hand** fields must be filled: click **Guess Bones** if they
+   are empty (see "Set up the hold"). Breathing needs them to find the ribcage and the shoulders.
+2. In panel **4. Blow**, in the **Breathing** box, click **Add Breathing**. The status bar at the bottom of
+   the window says what it found, for example *ribcage spine upper_013: depth = local Z, width = local X*.
+   It reads the real direction of each bone, so it works on any rig, however the bones are turned.
+3. Click **Bake MIDI to Animation** (panel **6. Bake**). This records *when* the character breathes in
+   (a track called `MIDI: Breathing`). If the status bar says *CC2 not in file*, click **Use Velocity** on
+   the effect named **Breathing** in the list below, then bake again.
+4. Press **Space** (or play the timeline). The ribcage swells forward and sideways, the belly swells,
+   the shoulders rise a little, and the torso leans back on the in-breath and forward as the air runs out.
+   The neck, head, shoulders and arms keep their size, and with the hold **Lock**ed the hands stay on the
+   instrument.
+
+The **sliders** in the Breathing box work live, also while the animation plays. You never have to bake
+again after moving one:
+
+| Slider | What it does | Default |
+|---|---|---|
+| **Intensity** | Everything at once: 0 = still, 1 = as set, 2 = double | 1 |
+| **Chest** | Ribcage swell: up to 10 % deeper, 4 % wider | 1 |
+| **Belly** | Belly swell: up to 6 % deeper | 1 |
+| **Shoulders** | Shoulders rise up to 3° | 1 |
+| **Torso** | Leans back up to 2° with full lungs, 1° forward with empty lungs | 1 |
+
+Each part slider goes from 0 (that part stays still) to 3 (three times as much). Click **Redo** to set up
+again (after you change the Strap Bone, say), or the **X** beside it to take Breathing off the rig.
+
+Things worth knowing:
+- Breathing drives the pose bones of the ribcage, the two spine bones below it and the shoulders, so it
+  overrides animation of your own on those bones. Other bones are left alone.
+- The 3° and the percentages are for a normal-sized adult. A more theatrical breath: raise **Intensity**.
+- Moving the hands away from the instrument (Unlock) doesn't switch Breathing off. Remove it with the **X**.
+- The old **Chest** button is gone: it scaled the lowest spine bone, so the head and arms grew with it, and
+  it assumed Rigify's bone directions. Breathing replaces it. The generic effect list (below) can still
+  drive any bone, but you choose the axis yourself.
+
+### Other blow effects (Cheeks and your own)
+
+Click **Cheeks** (select the face mesh first) to puff the cheeks with the blow. The **+** next to the list adds
+an empty effect (pick any shape key, bone channel or property), **−** removes the selected one.
 
 | Preset | Drives | Mode |
 |---|---|---|
 | Cheeks | `CheekPuff` shape key, 0 → 1 | **Direct**: follows the blow |
-| Chest | chest bone, scale X+Z, +0 → +4% | **Lung**: full before a phrase, empties while you blow, refills in rests |
 
 - **Source:** CC2 by default. If Analyze finds no CC2, the effect shows **Use Velocity** / **Turn Off**.
   It isn't baked until you choose. Velocity rises to the note's velocity and decays to **Sustain**.
 - **Min / Max:** output at no blow and full blow (Lung: empty and full lungs). Rotations are in degrees.
-- **Attack / Release:** how fast it follows. **Lung Capacity:** seconds of full blow that empty the lungs.
+- **Mode: Lung** gives the planned breathing curve (full after each break, emptier as you blow) instead of
+  the blow itself; the Breathing box uses it. **Attack / Release:** how fast the blow is followed.
 - Advanced: threshold, curve, normalize, blend, and a separate track/channel if the breath was recorded elsewhere.
 
 ## 6. Bake
@@ -280,4 +330,7 @@ Export needs Blender's UI (it draws with the GPU), not `blender -b`.
 - **Fingers bend backwards or sideways:** the **Bend Axis** is wrong for this rig. Click **Detect**, or pick it by hand, and run Autoassign with **Overwrite Locked**.
 - **Wrong notes fingered:** adjust **Transpose**.
 - **Cheeks don't move:** the effect's object must have the shape key. Check the status line for the blow source.
+- **Add Breathing says a bone was not found:** fill the Strap Bone and both Hands in panel 2 (**Guess Bones**), then click it again.
+- **The chest doesn't move, or moves backwards:** click **Bake** once (the sliders only scale what is baked), and check that the status bar's line after **Add Breathing** names sensible axes. If the Left Hand and Right Hand fields are on the wrong sides, the front is turned round: swap them.
+- **A bone I animated myself stopped following my animation:** Breathing owns the ribcage, the two spine bones below it and the shoulders. Remove it (the **X**) to get them back.
 - **"CC2 not in file":** the export lost the CC lane, or the Aerophone sends breath on another controller (see Analyze's Controllers line).
