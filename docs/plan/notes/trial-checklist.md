@@ -100,11 +100,12 @@ Transpose 0, so the script set it back to +2.
 | E3 | ok | `Object_3` NLA: track `MIDI: Chest` (strip Chest, Combine, frames 1–1332). No `Base: …` track because CJ had no active action. | – |
 | F1 | ok (script) | Pitch display Concert: the lowest note shows **D3** (written E3). The viewport preview itself still needs a look in the UI. | – |
 | F2 | ok | Export 10 s (frames 1–240) as ProRes 4444: 240 RGBA PNGs 1920×360 + `hud.mov` (36.6 MB) in `midi_trial\hud\`. Headless export needs `gpu.init()` first (a script matter, not a user one). | 19.9 s |
-| F3 | **user** | DaVinci Resolve overlay. | – |
+| F3 | skipped | The user edits video in Blender (Make Composite Scene, F4), not in an external editor. | – |
 | F4 | ok (simulated; the user judges the look) | The user chose a simulation: a copy `midi_trial_f4_agx.blend` with the AgX view transform (script `scripts\f4_composite.py`, Workbench, 50 %, frame 120; the file has no camera, so the script added one). AgX: "Created scene 'Scene + HUD'. The HUD colours are toned by this scene's view transform 'AgX'. For exact colours, overlay the exported PNGs or ProRes on your render in a video editor". Outside the HUD band, the composite matches the scene rendered alone to 1/255. The HUD sits at the bottom with its translucent panel. Control under Standard: no warning, same 1/255 match. | – |
-| F1 (preview) | **user** | The viewport HUD preview can only be judged in the UI. | – |
-| G1 | **user** | Severities stay *proposed* until the user confirms them. | – |
-| G2 | ok | Test-setup limits S1–S10 reviewed in the report. | – |
+| F1 (preview) | ok | The user checked it in the UI: "it's all correct" (Concert, letters, sharps, default sizes). The `//hud/` Output field is drawn red although the folder exists; Blender's own path display, not the plugin (cosmetic, unexplained). | – |
+| G1 | ok | The user confirmed every severity as proposed: P1, P3, P8 *bad*; P2, P4–P7, P9 *polish*. | – |
+| F4 (UI) | ok | The user ran it in the UI on `midi_trial_f4_agx.blend`: added a camera, Make Composite Scene, F12 on frame 120 of `Scene + HUD`. The first renders were black: the file has no World and no lights (S11), not a plugin problem. With a World and a sun: CJ renders, the HUD sits at the bottom, CJ shows through its panel; AgX tones the HUD slightly, as warned. | – |
+| G2 | ok | Test-setup limits S1–S11 reviewed in the report. | – |
 
 ## Skipped (step 12)
 Marker placement, Autoassign, Fill From Chart judgement, palm/side keys, thumb bend axis, curl naturalness, sax F#6/C# checks.
