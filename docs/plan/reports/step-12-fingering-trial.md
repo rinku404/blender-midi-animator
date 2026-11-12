@@ -3,8 +3,8 @@ step: 12
 title: "Fingering trial: CJ playing the clarinet"
 status: done
 branch: plan/step-12-fingering-trial
-pr: pending
-commits: pending
+pr: "#14"
+commits: 6fd2e75..60444a0
 date: 2026-11-12
 blender: Blender 5.2.3 LTS (C:\Program Files\Blender Foundation\Blender 5.2\blender.exe)
 tests_core: 58 passed (python -m pytest tests/core)
