@@ -18,7 +18,7 @@ import sys
 import traceback
 
 import bpy
-from mathutils import Matrix, Quaternion, Vector
+from mathutils import Euler, Matrix, Quaternion, Vector
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 sys.path.insert(0, ROOT)
@@ -159,8 +159,13 @@ def bend_checks(s, arm, markers, slots=None, keep_twist=True):
                 for i, b in enumerate(chain):
                     q = arm.pose.bones[b].rotation_quaternion.copy()
                     bend, twist, side = joint_angles(q)
-                    against = max(against, -sign * bend)
                     e = q.to_euler("XYZ")         # hinge joints: only X may be non-zero
+                    if i == 0 and not down:                     # Up poses: the root may lift by Knuckle Lift
+                        against = max(against, -sign * bend - s.knuckle_lift - 0.5)
+                    else:
+                        against = max(against, -sign * bend)
+                    if i == 0 and slot.finger == "thumb":      # the thumb's base may turn by Thumb Turn
+                        twist = max(0.0, abs(twist) - s.thumb_turn - 0.5)
                     turns = [twist] if keep_twist else []
                     if i > 0:
                         turns += [side, math.degrees(e.z)] + ([math.degrees(e.y)] if keep_twist else [])
@@ -169,6 +174,71 @@ def bend_checks(s, arm, markers, slots=None, keep_twist=True):
                 target = mw.translation if down else mw.translation + mw.to_3x3().col[2].normalized() * s.hover
                 worst_tip = max(worst_tip, (tip_world(arm, chain[-1]) - target).length)
     return against, locked, worst_tip
+
+
+def _tip_if_posed(arm, chain, eulers):
+    """Where the chain's tip would be with these XYZ eulers (radians) per bone; the pose is put back."""
+    pb = arm.pose.bones
+    saved = [pb[b].rotation_quaternion.copy() for b in chain]
+    for b, e in zip(chain, eulers):
+        pb[b].rotation_quaternion = Euler(e, "XYZ").to_quaternion()
+    tip = tip_world(arm, chain[-1]).copy()
+    for b, q in zip(chain, saved):
+        pb[b].rotation_quaternion = q
+    bpy.context.view_layer.update()
+    return tip
+
+
+def reach_checks(s, arm, markers):
+    """Step 7c: a key beside the index's hole (along the instrument) that only the Knuckle Swing
+    reaches, and a key the thumb only reaches by turning its base about its length (Thumb Turn).
+    Each is missed with the new freedom off, reached with the defaults, and the miss is written
+    on the pose with advice."""
+    bones = rig.finger_bones(s)
+    r = math.radians
+    cases = (
+        # index: nearly straight, knuckle swung 38 deg sideways (past the 25 deg spread)
+        ("L1", "PalmF", [(r(-5), 0, r(38)), (r(-15), 0, 0), (r(-15), 0, 0)], "knuckle_swing", True),
+        # thumb: base turned 28 deg about its own length, curled hard
+        ("LT", "Octave", [(r(-20), r(28), 0), (r(-90), 0, 0), (r(-90), 0, 0)], "thumb_turn", True),
+        # middle finger's Up (hover) point: knuckle lifted 20 deg backwards (the bend axis is -X)
+        ("L2", "A", [(r(20), 0, 0), (r(-10), 0, 0), (r(-10), 0, 0)], "knuckle_lift", False),
+    )
+    for slot, key, eulers, prop, down in cases:
+        m = markers[(slot, key)]
+        old = m.matrix_world.copy()
+        tip = _tip_if_posed(arm, bones[slot], eulers)
+        if not down:                        # the Up target is the marker + hover along its Z
+            tip = tip - old.to_3x3().col[2].normalized() * s.hover
+        m.matrix_world = Matrix.Translation(tip) @ old.to_3x3().to_4x4()
+        bpy.context.view_layer.update()
+        name = autoassign.pose_name(slot, key, down)
+        default = getattr(s, prop)
+        setattr(s, prop, 0.0)
+        _, _, problems, _ = autoassign.autoassign(bpy.context, s, slot)
+        off = bpy.data.actions[name].get(autoassign.MISS_PROP)
+        advice = bpy.data.actions[name].get(autoassign.ADVICE_PROP, "")
+        setattr(s, prop, default)
+        _, _, problems_on, _ = autoassign.autoassign(bpy.context, s, slot)
+        bpy.ops.midianim.apply_pose(action=name)
+        target = m.matrix_world.translation + (Vector() if down else m.matrix_world.to_3x3().col[2].normalized() * s.hover)
+        on = (tip_world(arm, bones[slot][-1]) - target).length
+        if not down:                        # the Up pose used the lift; the Down pose of the same key did not
+            up_bend = joint_angles(arm.pose.bones[bones[slot][0]].rotation_quaternion)[0]
+            bpy.ops.midianim.apply_pose(action=autoassign.pose_name(slot, key, True))
+            down_bend = joint_angles(arm.pose.bones[bones[slot][0]].rotation_quaternion)[0]
+            print(f"lift {slot} {key}: root bend Up {up_bend:.1f} deg (backwards is +), Down {down_bend:.1f} deg")
+            assert up_bend > 1.0 and down_bend < 0.5, (up_bend, down_bend)
+        print(f"reach {slot} {key}: {prop}=0 misses by {off} mm ({advice}); "
+              f"{prop}={default:.0f} reaches it within {on * 1000:.2f} mm")
+        assert off and off > 3.0 and advice.startswith(("move the hand", "the fingertip")), (off, advice)
+        assert problems and problems[0].startswith(state.profile(s).slots[[x.id for x in state.profile(s).slots].index(slot)].label)
+        assert on < 0.003 and bpy.data.actions[name].get(autoassign.MISS_PROP) is None, on
+        m.matrix_world = old
+        bpy.context.view_layer.update()
+        autoassign.autoassign(bpy.context, s, slot)
+    # Keep Twist still holds everywhere else: only the thumb's base turned, within Thumb Turn
+    assert max(bend_checks(s, arm, markers)[:2]) < 1.0
 
 
 def hold_checks(scene, s, arm, sax, markers):
@@ -958,16 +1028,29 @@ def main():
     autoassign.autoassign(bpy.context, s, "L1")
     nt = bend_checks(s, arm, markers, {"L1"}, keep_twist=False)
     print(f"keep twist off: against {nt[0]:.3f} deg, side turn {nt[1]:.3f} deg, tip {nt[2] * 1000:.2f} mm")
-    assert nt[0] < 1.0 and nt[1] < 1.0 and nt[2] < 0.004, nt
+    # 1.5 deg: with the twist free and the knuckle lift in Up poses, the solver leaves about 1.2 deg of
+    # sideways turn on a hinge (step 7c); with Keep Twist on it stays 0
+    assert nt[0] < 1.0 and nt[1] < 1.5 and nt[2] < 0.004, nt
     s.keep_twist = True
     autoassign.autoassign(bpy.context, s, "L1")
     _, _, problems, _ = autoassign.autoassign(bpy.context, s)
     assert problems == [], problems          # every Down and Up target reached
-    # A marker out of reach is reported, not silently missed
+    assert autoassign.misses("L1") == [] and autoassign.status_line(32, 0, []) == "32 poses"
+    reach_checks(s, arm, markers)
+    # A marker out of reach is reported, not silently missed: one line per finger, every missing
+    # pose listed on the pose (panel 2) and in the Info log lines, with which way to move the hand
     e_marker = markers[("R2", "E")]
     e_marker.location.z += 0.2
-    _, _, problems, _ = autoassign.autoassign(bpy.context, s, "R2")
-    assert len(problems) == 1 and "mm off" in problems[0], problems
+    created, skipped, problems, rest_msg = autoassign.autoassign(bpy.context, s, "R2")
+    assert len(problems) == 1 and problems[0].startswith("R Middle: 2 of 2 poses miss") and "mm off" in problems[0], problems
+    r2 = autoassign.misses("R2")
+    assert [n for n, _, _ in r2] == ["F.R2.E.Down", "F.R2.E.Up"] and all(mm > 100 and adv for _, mm, adv in r2), r2
+    assert autoassign.misses("R3") == []
+    lines = autoassign.report_lines(s, problems, rest_msg)
+    assert lines[1] == problems[0] and any("F.R2.E.Down" in ln and "mm off" in ln for ln in lines), lines
+    status = autoassign.status_line(created, skipped, problems)
+    assert status == f"{created} poses; 1 finger misses: see panel 2 (details in the Info log)", status
+    print("miss list:", status, "|", " / ".join(lines[1:]))
     e_marker.location.z -= 0.2
     autoassign.autoassign(bpy.context, s, "R2")
     s.force_autoassign = False

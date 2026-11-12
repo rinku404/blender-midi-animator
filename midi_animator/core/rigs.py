@@ -224,6 +224,9 @@ def guess_hold_bones(bones):
 BEND_AXES = ("X", "-X", "Z", "-Z")
 MAX_BEND_DEG = 120.0       # how far one joint may curl during Autoassign
 ROOT_SPREAD_DEG = 25.0     # side-to-side freedom of a finger's root (knuckle) joint
+KNUCKLE_SWING_DEG = 25.0   # default extra knuckle swing along the instrument (ADR 0015)
+THUMB_TURN_DEG = 45.0      # default turn of the thumb's base joint about its own length (ADR 0015)
+KNUCKLE_LIFT_DEG = 25.0    # default backwards bend of a root joint, Up poses only (ADR 0015)
 _MIN_CURL = 0.02           # sin of the summed rest curl below which a chain counts as straight
 
 
@@ -259,19 +262,25 @@ def detect_bend_axis(joints):
     return "Z" if sz > 0 else "-Z"
 
 
-def ik_joint_settings(bend_axis, keep_twist=True, root=False):
+def ik_joint_settings(bend_axis, keep_twist=True, root=False, swing_deg=0.0, turn_deg=0.0, lift_deg=0.0):
     """Pose-bone IK settings for one finger joint during Autoassign, as {attribute: value}.
 
     Middle and end joints are hinges: they turn only around the bend axis, and only in the
     curling direction (0..MAX_BEND_DEG from rest). The root joint (knuckle) may also spread
-    sideways by ROOT_SPREAD_DEG. Keep Twist locks the twist around the bone (Y)."""
+    sideways by ROOT_SPREAD_DEG plus `swing_deg`, the knuckle swing along the instrument
+    (fingers lie across the tube, so the knuckle's sideways axis runs along it). Keep Twist
+    locks the twist around the bone (Y), except a root given `turn_deg` (the thumb's base
+    joint), which may turn that far either way about its own length. A root given `lift_deg`
+    may also bend that far backwards (the knuckle lift Autoassign allows in Up poses only)
+    (ADR 0015)."""
     if bend_axis not in BEND_AXES:
         raise ValueError(f"bend axis must be one of {BEND_AXES}, not {bend_axis!r}")
     bend = bend_axis[-1].lower()
     side = "z" if bend == "x" else "x"
-    lo, hi = 0.0, math.radians(MAX_BEND_DEG)
+    back = math.radians(max(0.0, lift_deg)) if root else 0.0
+    lo, hi = -back, math.radians(MAX_BEND_DEG)
     if bend_axis.startswith("-"):
-        lo, hi = -hi, 0.0
+        lo, hi = -hi, back
     out = {}
     for a in "xyz":
         out[f"lock_ik_{a}"] = False
@@ -279,17 +288,81 @@ def ik_joint_settings(bend_axis, keep_twist=True, root=False):
     out[f"use_ik_limit_{bend}"] = True
     out[f"ik_min_{bend}"], out[f"ik_max_{bend}"] = lo, hi
     if root:
-        spread = math.radians(ROOT_SPREAD_DEG)
+        spread = math.radians(ROOT_SPREAD_DEG + max(0.0, swing_deg))
         out[f"use_ik_limit_{side}"] = True
         out[f"ik_min_{side}"], out[f"ik_max_{side}"] = -spread, spread
     else:
         out[f"lock_ik_{side}"] = True
     if keep_twist:
-        out["lock_ik_y"] = True
+        if root and turn_deg > 0:
+            turn = math.radians(turn_deg)
+            out["use_ik_limit_y"] = True
+            out["ik_min_y"], out["ik_max_y"] = -turn, turn
+        else:
+            out["lock_ik_y"] = True
     return out
 
 
-def locked_axes(bend_axis, keep_twist=True, root=False):
+def locked_axes(bend_axis, keep_twist=True, root=False, turn_deg=0.0):
     """Axes ('x', 'y', 'z') a joint must not turn around after Autoassign."""
-    s = ik_joint_settings(bend_axis, keep_twist, root)
+    s = ik_joint_settings(bend_axis, keep_twist, root, turn_deg=turn_deg)
     return [a for a in "xyz" if s[f"lock_ik_{a}"]]
+
+
+# -- Autoassign misses: where to move the hand ---------------------------------
+
+def _unit(v):
+    n = math.sqrt(_dot(v, v))
+    return (v[0] / n, v[1] / n, v[2] / n) if n > 1e-12 else None
+
+
+def tube_axis(points):
+    """The instrument's long axis from the key markers, as a unit vector pointing up the tube,
+    toward the mouthpiece. points: [(rank, (x, y, z))], rank growing down the tube (the
+    profile's slot order: left hand before right, index before pinky). The direction is the
+    markers' principal axis; its sign is the one along which the rank falls. None with fewer
+    than two distinct points."""
+    if len(points) < 2:
+        return None
+    n = len(points)
+    c = tuple(sum(p[i] for _, p in points) / n for i in range(3))
+    rel = [(r, (p[0] - c[0], p[1] - c[1], p[2] - c[2])) for r, p in points]
+    cov = [[sum(v[i] * v[j] for _, v in rel) for j in range(3)] for i in range(3)]
+    if max(abs(cov[i][j]) for i in range(3) for j in range(3)) < 1e-12:
+        return None
+    axis = (1.0, 1.0, 1.0)                       # power iteration: the largest eigenvector
+    for _ in range(60):
+        nxt = tuple(sum(cov[i][j] * axis[j] for j in range(3)) for i in range(3))
+        u = _unit(nxt)
+        if u is None:
+            break
+        axis = u
+    axis = _unit(axis)
+    if axis is None:
+        return None
+    mean_rank = sum(r for r, _ in rel) / n
+    corr = sum((r - mean_rank) * _dot(v, axis) for r, v in rel)
+    return axis if corr <= 0 else (-axis[0], -axis[1], -axis[2])
+
+
+def miss_advice(miss, up=None, out=None):
+    """One short sentence saying which way to move the hand (or the marker the other way) for a
+    fingertip that ends `miss` = target - tip (metres, world) from its target. `up`: unit vector
+    up the tube (tube_axis), `out`: unit vector out of the key (the marker's Z). The dominant
+    part names the direction; a miss that is mostly round the tube, or with no frame, says
+    "toward the key"."""
+    total = math.sqrt(_dot(miss, miss))
+    if total < 1e-9:
+        return ""
+    mm = f"{total * 1000:.0f} mm"
+    along = _dot(miss, up) if up else 0.0
+    outward = _dot(miss, out) if out else 0.0
+    if abs(along) >= 0.6 * total:
+        way = "up the tube, toward the mouthpiece" if along > 0 else "down the tube, toward the bell"
+        return f"move the hand {abs(along) * 1000:.0f} mm {way} (or the marker the other way)"
+    if abs(outward) >= 0.6 * total:
+        d = f"{abs(outward) * 1000:.0f} mm"
+        if outward > 0:
+            return f"the fingertip ends {d} too deep: move the hand {d} away from the keys"
+        return f"the fingertip ends {d} too far out: move the hand {d} toward the keys"
+    return f"move the hand {mm} toward the key, round the tube (or the marker toward the hand)"

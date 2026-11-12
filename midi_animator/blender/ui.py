@@ -13,6 +13,18 @@ def _labeled(layout, text, factor=0.38):
     return split
 
 
+def _wrap(text, width):
+    """Split text into lines of at most `width` characters at spaces (sidebar labels don't wrap)."""
+    lines, cur = [], ""
+    for word in text.split():
+        if cur and len(cur) + 1 + len(word) > width:
+            lines.append(cur)
+            cur = word
+        else:
+            cur = f"{cur} {word}" if cur else word
+    return lines + ([cur] if cur else [])
+
+
 class MIDIANIM_UL_notes(bpy.types.UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
         s = state.settings(context)
@@ -197,14 +209,28 @@ class MIDIANIM_PT_fingers(MIDIANIM_PT_base, bpy.types.Panel):
         r = box.row(align=True)
         r.prop(s, "keep_twist")
         r.prop(s, "force_autoassign")
+        r = box.row(align=True)
+        r.prop(s, "knuckle_swing", text="Swing °")
+        r.prop(s, "knuckle_lift", text="Lift °")
+        box.row(align=True).prop(s, "thumb_turn", text="Thumb Turn °")
         box.label(text="Also builds F.Rest: fingers up over their home keys")
-        for act in autoassign.generated_poses(f.slot):
+        poses = autoassign.generated_poses(f.slot)
+        missed = [a for a in poses if a.get(autoassign.MISS_PROP)]
+        if missed:
+            box.label(text=f"{len(missed)} of {len(poses)} poses miss their key", icon="ERROR")
+        for act in poses:
             r = box.row(align=True)
-            r.label(text=act.name)
+            mm = act.get(autoassign.MISS_PROP)
+            r.label(text=f"{act.name}  {mm:.0f} mm off" if mm else act.name, icon="ERROR" if mm else "NONE")
             r.operator("midianim.apply_pose", text="", icon="HIDE_OFF").action = act.name
             locked = bool(act.get(autoassign.LOCK_PROP))
             r.operator("midianim.toggle_lock", text="", icon="LOCKED" if locked else "UNLOCKED",
                        emboss=False).action = act.name
+            if mm:
+                col = box.column(align=True)
+                col.scale_y = 0.8
+                for part in _wrap(act.get(autoassign.ADVICE_PROP, ""), 38):
+                    col.label(text=part, icon="BLANK1")
 
 
 class MIDIANIM_PT_notes(MIDIANIM_PT_base, bpy.types.Panel):

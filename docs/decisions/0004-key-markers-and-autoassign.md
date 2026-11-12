@@ -20,6 +20,9 @@ Poses are ordinary, hand-tweakable assets. Because the instrument is parented to
 
 ## Note (2026-11-07, plan step 4)
 
+*The joint limits and the miss report below are superseded by
+[0015](0015-finger-reach-knuckle-swing-and-thumb-turn.md) (knuckle swing, thumb turn, misses per pose).*
+
 Refinements inside this decision, no change to it:
 
 - While solving, each finger joint's IK is limited to the rig's **Bend Axis** (a scene setting:

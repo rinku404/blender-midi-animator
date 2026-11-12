@@ -415,13 +415,10 @@ class MIDIANIM_OT_autoassign(bpy.types.Operator):
         rig.sync_finger_slots(s)
         only = s.fingers[s.finger_index].slot if self.only_selected and s.fingers else None
         created, skipped, problems, rest_msg = autoassign.autoassign(context, s, only)
-        msg = f"{created} poses created"
-        if skipped:
-            msg += f", {skipped} locked kept"
-        msg += f"; {rest_msg}"
-        if problems:
-            msg += " | " + "; ".join(problems)
-        self.report({"WARNING"} if problems else {"INFO"}, msg)
+        for line in autoassign.report_lines(s, problems, rest_msg):
+            self.report({"INFO"}, line)            # the Info log keeps every line
+        self.report({"WARNING"} if problems else {"INFO"},
+                    autoassign.status_line(created, skipped, problems))
         return {"FINISHED"}
 
 

@@ -37,7 +37,7 @@ blender --command extension validate midi_animator                   # manifest 
 New logic goes in `core/` with a pytest test whenever it doesn't need Blender.
 
 ## Status (2026-11-12)
-- `core/`: done, 77 tests passing (step 7b: breath planner `signal.plan_breaths`, `breathing.py`) (sax chart Bb3–F#6 since step 5; B♭ clarinet profile, Boehm chart
+- `core/`: done, 81 tests passing (step 7c: knuckle swing / lift / thumb turn limits and miss advice in `rigs.py`; step 7b: breath planner `signal.plan_breaths`, `breathing.py`) (sax chart Bb3–F#6 since step 5; B♭ clarinet profile, Boehm chart
   E3–C6 and default Transpose +2, since step 10; shared finger slots, numbered fingers and the thumb
   tilt since step 11; hold geometry `hold.py` since step 7a: instrument front, off-joint arm tails).
 - `blender/`: `tests/test_in_blender.py` passes in Blender 5.2.3 (2026-11-11, sax, clarinet and a two-finger hand), and the built
@@ -52,4 +52,5 @@ New logic goes in `core/` with a pytest test whenever it doesn't need Blender.
   bones (`FingerBones.shares`) or be a hand tilt (`FingerBones.tilt`, degrees); names stay per slot.
 - Baked data: actions prefixed `MIDI_`, NLA tracks `MIDI: …`; the user's action goes to `Base: …`.
 - Breathing: custom property `breath_lung` on the rig (baked by the "Breathing" effect), drivers on the body bones, sliders `Scene.midi_animator.breath_*`; bones changed keep `midianim_breath_inherit` (ADR 0014).
+- Autoassign misses: a generated pose that misses its target keeps `midianim_miss_mm` / `midianim_miss_advice`; panel 2 lists them (ADR 0015).
 - Written pitch = file pitch + Transpose. Charts and the note map use written pitch.
