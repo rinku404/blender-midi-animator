@@ -55,7 +55,7 @@ CHANNEL_ITEMS = [
     ("LOC_X", "Location X", ""), ("LOC_Y", "Location Y", ""), ("LOC_Z", "Location Z", ""),
     ("ROT_X", "Rotation X", "Degrees"), ("ROT_Y", "Rotation Y", "Degrees"), ("ROT_Z", "Rotation Z", "Degrees"),
     ("SCALE_X", "Scale X", "Added to 1"), ("SCALE_Y", "Scale Y", "Added to 1"),
-    ("SCALE_Z", "Scale Z", "Added to 1"), ("SCALE_XZ", "Scale X+Z", "Added to 1 (chest width and depth)"),
+    ("SCALE_Z", "Scale Z", "Added to 1"), ("SCALE_XZ", "Scale X+Z", "Added to 1 (assumes Rigify axes; Add Breathing finds the axes itself)"),
     ("SCALE_XYZ", "Scale XYZ", "Added to 1"),
 ]
 
@@ -186,7 +186,7 @@ class MIDIANIM_Effect(bpy.types.PropertyGroup):
         name="Mode",
         items=[
             ("DIRECT", "Direct", "Follows blow intensity (cheeks)"),
-            ("LUNG", "Lung", "Follows the air left in the lungs: empties while blowing, refills in rests (chest)"),
+            ("LUNG", "Lung", "Follows the air left in the lungs: breathes in at every break in the music, empties while blowing"),
         ],
         default="DIRECT",
     )
@@ -204,10 +204,6 @@ class MIDIANIM_Effect(bpy.types.PropertyGroup):
                            description="Velocity fallback: level held while the note sounds")
     decay: FloatProperty(name="Decay (s)", default=0.2, min=0.0, max=3.0,
                          description="Velocity fallback: time to fall from the peak to sustain")
-    lung_capacity: FloatProperty(name="Lung Capacity (s)", default=6.0, min=0.5, max=60.0,
-                                 description="Seconds of full blow that empty the lungs")
-    refill_time: FloatProperty(name="Refill (s)", default=0.35, min=0.01, max=5.0,
-                               description="How fast the lungs refill in rests")
     blend_type: EnumProperty(name="Blend", items=BLEND_ITEMS, default="REPLACE")
 
     own_source: BoolProperty(name="Own Track/Channel", default=False,
@@ -253,6 +249,17 @@ class MIDIANIM_Hud(bpy.types.PropertyGroup):
     output_format: EnumProperty(name="Format", items=[
         ("PNG", "PNG Sequence (alpha)", "One RGBA PNG per frame"),
         ("PRORES", "ProRes 4444 (alpha)", "PNG sequence, then a .mov encoded by Blender")], default="PNG")
+
+
+def _breath_update(self, context):
+    """A Breathing slider moved: the drivers read it, so wake the rig."""
+    if self.rig:
+        self.rig.update_tag()
+
+
+def _breath_slider(name, description, hi=3.0, soft_hi=2.0):
+    return FloatProperty(name=name, default=1.0, min=0.0, max=hi, soft_max=soft_hi, step=10, precision=2,
+                         description=description, update=_breath_update)
 
 
 class MIDIANIM_Settings(bpy.types.PropertyGroup):
@@ -329,6 +336,14 @@ class MIDIANIM_Settings(bpy.types.PropertyGroup):
     keep_active_actions: BoolProperty(
         name="Keep Active Actions as Base", default=True,
         description="Move the targets' active actions (e.g. an idle) into a base NLA track under the MIDI tracks")
+
+    breath_intensity: _breath_slider(
+        "Intensity", "Scales every breathing movement: 0 = still, 1 = default, 2 = double", hi=2.0, soft_hi=2.0)
+    breath_chest: _breath_slider("Chest", "Ribcage swells forward and sideways (default: up to 10 % deep, 4 % wide)")
+    breath_belly: _breath_slider("Belly", "Belly swells forward (default: up to 6 %)")
+    breath_shoulders: _breath_slider("Shoulders", "Shoulders rise on the in-breath (default: up to 3°)")
+    breath_torso: _breath_slider(
+        "Torso", "Torso leans back on the in-breath and forward as the air runs out (default: +2° to −1°)")
 
     hud: PointerProperty(type=MIDIANIM_Hud)
 

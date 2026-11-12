@@ -9,6 +9,8 @@ to the B-flat clarinet profile and runs markers -> Autoassign -> Fill -> Bake ag
 builds a two-finger hand (CJ-style numbered bones, no thumb) and checks shared finger slots and
 the thumb tilt (step 11), and a CJ-style rig with off-joint arm tails to check that Lock moves
 nothing, that Guess Bones finds wrists and the upper chest, and the instrument's front (step 7a).
+Breathing (step 7b) is checked on the first rig (with the hold locked) and on CJ-style rigs with
+upright and with sideways spine bones: the right axes, no head or arm growth, hands on target.
 """
 import math
 import os
@@ -21,7 +23,7 @@ from mathutils import Matrix, Quaternion, Vector
 ROOT = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 sys.path.insert(0, ROOT)
 import midi_animator  # noqa: E402
-from midi_animator.blender import actions, autoassign, rig, state  # noqa: E402
+from midi_animator.blender import actions, autoassign, bake, breathing, rig, state  # noqa: E402
 from midi_animator.core.notes import parse_note_name  # noqa: E402
 
 MID = os.path.join(ROOT, "examples", "aerophone_sample.mid")
@@ -215,7 +217,7 @@ def hold_checks(scene, s, arm, sax, markers):
 
 
 def hold_breath_checks(scene, s, arm, sax):
-    """After a bake with the Chest effect and the hold locked."""
+    """After a bake with Breathing and the hold locked."""
     pb = arm.pose.bones
     # Breathing never scales the instrument (a bone-parented child would)
     probe = bpy.data.objects.new("probe", None)
@@ -228,15 +230,21 @@ def hold_breath_checks(scene, s, arm, sax):
         gap = max(gap, (arm.matrix_world @ pb["hand.L"].head - tgt.matrix_world.translation).length)
         worst = max(worst, max(abs(v - 1.0) for v in sax.matrix_world.to_scale()))
         probe_scale = max(probe_scale, probe.matrix_world.to_scale().x)
-    chest_scale = max(pb["chest"].scale.x, 1.0)
+    chest_scale = max(pb["chest"].scale.z, 1.0)
     print(f"max sax scale error {worst:.2e}; chest scale up to {chest_scale:.3f}; bone-parented probe {probe_scale:.3f}")
-    assert chest_scale > 1.005, "Chest effect did not scale the bone, so this test proves nothing"
+    assert chest_scale > 1.005, "Breathing did not scale the bone, so this test proves nothing"
     assert probe_scale > 1.005, "bone parenting should scale (the reason for Child Of)"
     assert worst < 1e-4, worst
     print(f"max hand-to-target gap while breathing: {gap * 1000:.3f} mm")
     assert gap < 0.001, gap         # the upper arms don't inherit the chest's scale while locked
     assert arm.data.bones["upper_arm.L"].inherit_scale == "NONE"
     bpy.data.objects.remove(probe)
+
+    # Unlock keeps the arms from inheriting the ribcage's swell while Breathing is on
+    assert bpy.ops.midianim.unlock_hands() == {"FINISHED"}
+    for side in "LR":
+        assert arm.data.bones[f"upper_arm.{side}"].inherit_scale == "NONE"
+    assert bpy.ops.midianim.lock_hands() == {"FINISHED"}
 
     # Idempotent re-lock; unlock cleans up
     assert bpy.ops.midianim.lock_hands() == {"FINISHED"}
@@ -248,7 +256,13 @@ def hold_breath_checks(scene, s, arm, sax):
     assert "MIDI Hold L" not in bpy.data.objects and "MIDI Hold R" not in bpy.data.objects
     for side in "LR":
         b = arm.data.bones[f"upper_arm.{side}"]
-        assert b.inherit_scale == "FULL" and "midianim_inherit_scale" not in b, "inherit scale not restored"
+        assert "midianim_inherit_scale" not in b
+        assert b.inherit_scale == "NONE", "Breathing is on: the arm keeps ignoring the ribcage's scale"
+    assert bpy.ops.midianim.breathing_remove() == {"FINISHED"}
+    for side in "LR":
+        b = arm.data.bones[f"upper_arm.{side}"]
+        assert b.inherit_scale == "FULL" and "midianim_breath_inherit" not in b, "inherit scale not restored"
+    assert bpy.ops.midianim.breathing_add() == {"FINISHED"}       # on again for the rest of the test
     # Missing bones give a clean error, not a traceback
     s.hold_hand_r = "nope"
     try:
@@ -510,7 +524,7 @@ def two_finger_checks():
     print("two-finger checks passed")
 
 
-def build_cj_scene():
+def build_cj_scene(sideways_spine=False, clavicles=False):
     """A rig like CJ's FBX import (step 6, P1): hands named wrist, a spine lower/middle/upper
     chain, and arm bones whose tails sit beside the limb instead of on the next joint. A skinned
     strip of points along each arm checks that the mesh never moves. The instrument is an empty
@@ -525,9 +539,14 @@ def build_cj_scene():
     bpy.ops.object.mode_set(mode="EDIT")
     eb = arm_data.edit_bones
     prev = None
-    for name, z in (("spine lower_011", 1.0), ("spine middle_012", 1.15), ("spine upper_013", 1.3)):
+    # sideways_spine: the original FBX rig, whose spine bones point along +X / -X and are rolled
+    for name, z, tail, roll in (("spine lower_011", 1.0, (0.15, 0, 0), 0.0), ("spine middle_012", 1.15, (-0.15, 0, 0), 0.7),
+                                ("spine upper_013", 1.3, (-0.2, 0, 0), -0.4)):
         b = eb.new(name)
-        b.head, b.tail, b.parent = (0, 0, z), (0, 0, z + 0.15), prev
+        b.head, b.parent = (0, 0, z), prev
+        b.tail = (tail[0], 0, z + tail[2]) if sideways_spine else (0, 0, z + 0.15)
+        if sideways_spine:
+            b.roll = roll
         prev = b
     chest = prev
     joints = {}
@@ -535,6 +554,10 @@ def build_cj_scene():
         sh, el, wr = Vector((0.2 * sx, 0, 1.4)), Vector((0.5 * sx, -0.05, 1.2)), Vector((0.45 * sx, -0.4, 1.25))
         up = eb.new(f"arm {side} shoulder 2_039")
         up.head, up.tail, up.parent = sh, sh + Vector((0.1 * sx, 0.25, 0.1)), chest     # off the elbow
+        if clavicles:        # CJ's "shoulder 1": the bone between the ribcage and the upper arm
+            cl = eb.new(f"arm {side} shoulder 1_038")
+            cl.head, cl.tail, cl.parent = Vector((0.05 * sx, 0, 1.45)), sh, chest
+            up.parent = cl
         fo = eb.new(f"arm {side} elbow_040")
         fo.head, fo.tail, fo.parent = el, el + Vector((0.3 * sx, 0.05, -0.25)), up      # 39 cm off the wrist
         hand = eb.new(f"arm {side} wrist_041")
@@ -693,6 +716,184 @@ def offjoint_and_front_checks():
     print("off-joint rig and front checks passed")
 
 
+class _Recorder:
+    """A stand-in for a panel layout: records the properties and operators the panel draws."""
+    def __init__(self, log):
+        self.log = log
+
+    def __getattr__(self, name):
+        def call(*args, **kw):
+            if name == "prop":
+                self.log.append(("prop", args[1]))
+            elif name == "operator":
+                self.log.append(("operator", args[0]))
+            return _Recorder(self.log)
+        return call
+
+
+def breathing_panel_checks(s):
+    """The Breathing box offers Add Breathing; once set up, the five sliders and the remove button."""
+    from midi_animator.blender import ui
+    log = []
+    ui.MIDIANIM_PT_blow.draw_breathing(_Recorder(log), s)
+    shown = [x for k, x in log if k == "operator"]
+    assert shown == ["midianim.breathing_add", "midianim.breathing_remove"] if breathing.is_set_up(s) else         shown == ["midianim.breathing_add"], (shown, breathing.is_set_up(s))
+    for kind, name in log:
+        if kind == "prop":
+            assert hasattr(s, name), name
+        else:
+            mod, op = name.split(".")
+            assert hasattr(getattr(bpy.ops, mod), op), name
+    props = [x for k, x in log if k == "prop"]
+    assert props == (["breath_intensity", "breath_chest", "breath_belly", "breath_shoulders", "breath_torso"]
+                     if breathing.is_set_up(s) else []), props
+
+
+def breathing_checks(sideways_spine):
+    """Step 7b on a CJ-style rig: the right axes whatever the spine bones' orientation, the head and arms
+    keep their size, the hands stay on their targets, and every slider works live (no re-bake)."""
+    from midi_animator.blender import hold
+    scene, arm, skin, inst, tube = build_cj_scene(sideways_spine, clavicles=True)
+    s = scene.midi_animator
+    s.rig, s.instrument = arm, inst
+    s.midi_path = MID
+    pb = arm.pose.bones
+    ribs, middle, lower = "spine upper_013", "spine middle_012", "spine lower_011"
+    assert bpy.ops.midianim.guess_hold_bones() == {"FINISHED"}
+    assert bpy.ops.midianim.lock_hands() == {"FINISHED"}
+    assert bpy.ops.midianim.breathing_add() == {"FINISHED"}
+    print("breathing on", "sideways" if sideways_spine else "upright", "spine:", arm["midianim_breath"][:60], "...")
+
+    def settle():
+        bpy.context.view_layer.update()
+
+    def full_scale(name):
+        return (arm.matrix_world @ pb[name].matrix).to_scale()
+
+    def world_axis(name, i):
+        return (arm.matrix_world.to_3x3() @ pb[name].matrix.to_3x3()).col[i].normalized()
+
+    def set_lung(v):
+        arm["breath_lung"] = v
+        arm.update_tag()                    # a custom property set from a script doesn't wake the drivers itself
+        settle()
+
+    def err():
+        return max((bpy.data.objects[f"MIDI Hold {sd}"].matrix_world.translation
+                    - arm.matrix_world @ pb[b].matrix.translation).length
+                   for sd, b in (("L", s.hold_hand_l), ("R", s.hold_hand_r)))
+
+    set_lung(0.0)
+    for name in (ribs, middle, lower):
+        assert max(abs(v - 1.0) for v in pb[name].scale) < 1e-9, "empty lungs: still"
+    set_lung(1.0)
+    # which axes grew: the ribcage's depth axis points front-back (world Y), its width axis side to side (X)
+    grown = [i for i in range(3) if pb[ribs].scale[i] > 1.001]
+    assert len(grown) == 2, tuple(pb[ribs].scale)
+    by_amount = sorted(grown, key=lambda i: -pb[ribs].scale[i])
+    depth, width = by_amount
+    assert abs(pb[ribs].scale[depth] - 1.10) < 1e-6 and abs(pb[ribs].scale[width] - 1.04) < 1e-6
+    aligned = 0.9 if sideways_spine else 0.99          # the sideways rig's bones are rolled up to 23 degrees
+    assert abs(world_axis(ribs, depth).y) > aligned, world_axis(ribs, depth)
+    assert abs(world_axis(ribs, width).x) > aligned, world_axis(ribs, width)
+    bdepth = max(range(3), key=lambda i: pb[lower].scale[i])
+    assert abs(pb[lower].scale[bdepth] - 1.06) < 1e-6 and abs(world_axis(lower, bdepth).y) > aligned
+    # nothing above the chest grows: the arms (and with them anything under them), at every sampled lung
+    arm_bones = [b.name for b in arm.data.bones if b.name not in (ribs, middle, lower)]
+    worst, worst_hand = 0.0, 0.0
+    for lung in (0.0, 0.3, 0.7, 1.0):
+        set_lung(lung)
+        for n in arm_bones:
+            worst = max(worst, max(abs(v - 1.0) for v in full_scale(n)))
+        worst_hand = max(worst_hand, err())
+    print(f"  head/arm scale error {worst:.2e}, hand-to-target {worst_hand * 1000:.4f} mm")
+    assert worst < 1e-4, worst
+    assert worst_hand < 1e-3, worst_hand
+
+    # each part moves the right way: full minus empty lungs, one slider at a time (world space, metres)
+    def snapshot(lung):
+        set_lung(lung)
+        return {n: (arm.matrix_world @ pb[n].head).copy() for n in
+                ("arm left shoulder 2_039", "arm right shoulder 2_039", ribs)} |             {"ribs_tail": (arm.matrix_world @ pb[ribs].tail).copy()}
+
+    def only(part):
+        for p in breathing.PARTS:
+            setattr(s, f"breath_{p}", 1.0 if p == part else 0.0)
+        settle()
+    only("shoulders")
+    empty, full = snapshot(0.0), snapshot(1.0)
+    rise = (full["arm left shoulder 2_039"] - empty["arm left shoulder 2_039"]).z
+    assert rise > 0.001, f"shoulders did not rise: {rise}"
+    only("torso")
+    empty, full = snapshot(0.0), snapshot(1.0)
+    back = (full["ribs_tail"] - empty["ribs_tail"]).y          # the character faces -Y: back is +Y
+    assert back > 0.005, f"torso did not lean back: {back}"
+    only("chest")
+    empty, full = snapshot(0.0), snapshot(1.0)
+    assert (full[ribs] - empty[ribs]).length < 1e-6          # the ribcage swells about its own head: no lean
+    for p in breathing.PARTS:
+        setattr(s, f"breath_{p}", 1.0)
+
+    # the sliders are live: the update callback alone wakes the rig; master 0 / 1 / 2 = still / default / double
+    set_lung(1.0)
+    rest_z = []
+    for master in (0.0, 1.0, 2.0):
+        s.breath_intensity = master
+        settle()
+        rest_z.append(pb[ribs].scale[depth] - 1.0)
+    assert abs(rest_z[0]) < 1e-9 and abs(rest_z[1] - 0.10) < 1e-6 and abs(rest_z[2] - 0.20) < 1e-6, rest_z
+    s.breath_intensity = 1.0
+    s.breath_chest = 3.0
+    settle()
+    assert abs(pb[ribs].scale[depth] - 1.30) < 1e-6
+    s.breath_chest = 0.0
+    settle()
+    assert abs(pb[ribs].scale[depth] - 1.0) < 1e-9 and abs(pb[lower].scale[bdepth] - 1.06) < 1e-6
+    s.breath_chest = 1.0
+    assert err() < 1e-3
+
+    # remove: back to the plain rig
+    assert bpy.ops.midianim.breathing_remove() == {"FINISHED"}
+    assert not any(d for d in (arm.animation_data.drivers if arm.animation_data else []))
+    assert max(abs(v - 1.0) for v in pb[ribs].scale) < 1e-9 and "breath_lung" not in arm
+    assert not any(e.name == "Breathing" for e in s.effects)
+    bpy.ops.midianim.unlock_hands()
+
+
+def old_chest_checks():
+    """A file made before 7b has the old Chest effect (Lung mode, bone, Scale X+Z). Add Breathing turns
+    it off (settings kept), Bake animates the spine only through Breathing, and Bake warns if the old
+    effect is switched on again."""
+    scene, arm, skin, inst, tube = build_cj_scene(False, clavicles=True)
+    s = scene.midi_animator
+    s.rig, s.instrument, s.midi_path = arm, inst, MID
+    s.fingering_enabled = False
+    assert bpy.ops.midianim.guess_hold_bones() == {"FINISHED"}
+    e = s.effects.add()
+    e.name, e.target_type, e.target, e.bone = "Chest", "BONE", arm, "spine lower_011"
+    e.channel, e.mode, e.out_max, e.blend_type = "SCALE_XZ", "LUNG", 0.04, "COMBINE"
+    e.attack, e.release = 0.15, 0.4
+    assert bpy.ops.midianim.breathing_add() == {"FINISHED"}
+    chest = next(x for x in s.effects if x.name == "Chest")
+    assert not chest.enabled and abs(chest.out_max - 0.04) < 1e-6 and chest.bone == "spine lower_011"
+    assert bpy.ops.midianim.bake() == {"FINISHED"}
+    tracks = [t.name for t in arm.animation_data.nla_tracks]
+    assert tracks == ["MIDI: Breathing"], tracks
+    for f in (1, 30, 60, 90):
+        scene.frame_set(f)
+        low = arm.pose.bones["spine lower_011"]
+        lung = arm["breath_lung"]
+        assert abs(low.scale.y - 1.0) < 1e-6, tuple(low.scale)             # the old effect's Y (up) channel
+        assert abs(low.scale.z - (1 + 0.06 * lung)) < 1e-4, (tuple(low.scale), lung)      # Breathing's belly only
+    chest.enabled = True                                        # switched on again by hand: Bake warns
+    msgs, warnings = bake.bake_all(bpy.context)
+    assert any("Chest" in w and "second time" in w for w in warnings), warnings
+    chest.enabled = False
+    assert bpy.ops.midianim.breathing_remove() == {"FINISHED"}
+    assert chest.enabled, "Remove gives the old effect back"
+    print("old Chest effect checks passed")
+
+
 def main():
     midi_animator.register()
     scene, arm, sax, face = build_scene()
@@ -820,10 +1021,16 @@ def main():
     # Blow effects
     bpy.context.view_layer.objects.active = face
     assert bpy.ops.midianim.effect_add(preset="CHEEKS") == {"FINISHED"}
-    assert bpy.ops.midianim.effect_add(preset="CHEST") == {"FINISHED"}
-    cheeks, chest = s.effects
-    assert cheeks.target == face and chest.target == arm and chest.bone == "chest"
-    assert chest.mode == "LUNG"
+    assert not any(p.id == "CHEST" for p in state.profile(s).presets), "Chest preset is part of Breathing now"
+    assert not breathing.is_set_up(s)
+    breathing_panel_checks(s)
+    assert bpy.ops.midianim.breathing_add() == {"FINISHED"}
+    assert breathing.is_set_up(s)
+    breathing_panel_checks(s)
+    cheeks, lungs = s.effects
+    assert cheeks.target == face and lungs.name == "Breathing" and lungs.target == arm
+    assert lungs.mode == "LUNG" and lungs.data_path == '["breath_lung"]'
+    assert bpy.ops.midianim.breathing_add() == {"FINISHED"} and len(s.effects) == 2     # Redo: no duplicates
     bpy.ops.midianim.effect_add(preset="")
     missing = s.effects[2]
     missing.name, missing.target, missing.target_type = "Missing", face, "SHAPE_KEY"
@@ -833,7 +1040,7 @@ def main():
 
     assert bpy.ops.midianim.bake() == {"FINISHED"}
     tracks = [t.name for t in arm.animation_data.nla_tracks]
-    assert "MIDI: Fingering" in tracks and "MIDI: Chest" in tracks and "Base: Idle" in tracks, tracks
+    assert "MIDI: Fingering" in tracks and "MIDI: Breathing" in tracks and "Base: Idle" in tracks, tracks
     sk_tracks = [t.name for t in face.data.shape_keys.animation_data.nla_tracks]
     assert sk_tracks == ["MIDI: Cheeks"], sk_tracks         # Missing was skipped, not silently baked
 
@@ -846,9 +1053,17 @@ def main():
         got = getattr(arm.path_resolve(owner), prop)[idx]
         assert abs(got - v) < 1e-3, (path, idx, got, v)
     assert face.data.shape_keys.key_blocks["CheekPuff"].value > 0.3
-    sy_mid = arm.pose.bones["chest"].scale.x
-    scene.frame_set(int(1 + 4.6 * fps))       # late in the first phrase: lungs emptier
-    assert arm.pose.bones["chest"].scale.x < sy_mid
+    # Breathing: the baked lung drives the ribcage (Rigify-style chest: depth = Z, width = X)
+    lung = arm["breath_lung"]
+    cs = arm.pose.bones["chest"].scale
+    assert 0.0 < lung <= 1.0 and abs(cs.z - (1 + 0.10 * lung)) < 1e-4 and abs(cs.x - (1 + 0.04 * lung)) < 1e-4, (lung, tuple(cs))
+    assert abs(cs.y - 1.0) < 1e-6
+    lungs_seen = set()
+    for f in range(1, int(1 + 8 * fps), 2):
+        scene.frame_set(f)
+        lungs_seen.add(round(arm["breath_lung"], 2))
+    assert len(lungs_seen) > 10 and min(lungs_seen) < 0.8 and max(lungs_seen) > 0.95, sorted(lungs_seen)
+    scene.frame_set(int(1 + 2.1 * fps))
     assert abs(arm.pose.bones["hand.L"].location.y - 0.05) < 1e-4, "base idle lost"
     # The rest between phrases (5.4 s .. 6.6 s) uses the auto Rest pose
     scene.frame_set(int(1 + 6.0 * fps))
@@ -872,6 +1087,9 @@ def main():
     clarinet_checks(scene, s, arm)
     two_finger_checks()
     offjoint_and_front_checks()
+    breathing_checks(sideways_spine=False)
+    breathing_checks(sideways_spine=True)
+    old_chest_checks()
     midi_animator.unregister()
     print("ALL TESTS PASSED")
 

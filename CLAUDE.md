@@ -16,12 +16,12 @@ Read `docs/plan/AGENT_BRIEF.md` first and follow it: one step per branch, and a 
 
 ## Layout
 - `midi_animator/core/`: pure Python, **must never import `bpy`**. MIDI parser (`midi.py`),
-  blow signal (`signal.py`), profiles + sax and B♭ clarinet charts (`profiles.py`), fingering timeline
+  blow signal and breath planner (`signal.py`), breathing axes (`breathing.py`), profiles + sax and B♭ clarinet charts (`profiles.py`), fingering timeline
   (`fingering.py`), rig-name finger detection (`rigs.py`), hold geometry (`hold.py`: instrument front,
   off-joint arm tails), HUD layout (`hud.py`), note names (`notes.py`).
 - `midi_animator/blender/`: thin Blender layer: `props.py` (Scene.midi_animator), `ops.py`,
   `ui.py` (sidebar tab "MIDI"), `rig.py` (finger slots, key markers), `autoassign.py`
-  (IK → pose assets, locks), `hold.py` (instrument on a strap bone, hands IK-locked to it), `bake.py` (NLA baking), `hud_draw.py` (gpu/blf preview + export),
+  (IK → pose assets, locks), `hold.py` (instrument on a strap bone, hands IK-locked to it), `bake.py` (NLA baking), `breathing.py` (Add Breathing: drivers on `breath_lung`, scene sliders), `hud_draw.py` (gpu/blf preview + export),
   `actions.py` (slotted-action / NLA helpers), `state.py` (shared helpers).
 - `midi_animator/__init__.py` imports `bpy` only inside `register()`. Keep it that way so
   `core` stays testable.
@@ -37,7 +37,7 @@ blender --command extension validate midi_animator                   # manifest 
 New logic goes in `core/` with a pytest test whenever it doesn't need Blender.
 
 ## Status (2026-11-12)
-- `core/`: done, 65 tests passing (sax chart Bb3–F#6 since step 5; B♭ clarinet profile, Boehm chart
+- `core/`: done, 77 tests passing (step 7b: breath planner `signal.plan_breaths`, `breathing.py`) (sax chart Bb3–F#6 since step 5; B♭ clarinet profile, Boehm chart
   E3–C6 and default Transpose +2, since step 10; shared finger slots, numbered fingers and the thumb
   tilt since step 11; hold geometry `hold.py` since step 7a: instrument front, off-joint arm tails).
 - `blender/`: `tests/test_in_blender.py` passes in Blender 5.2.3 (2026-11-11, sax, clarinet and a two-finger hand), and the built
@@ -51,4 +51,5 @@ New logic goes in `core/` with a pytest test whenever it doesn't need Blender.
   `Key.<slot>.<key>` with custom props `midianim_slot` / `midianim_key`. A slot may share another slot's
   bones (`FingerBones.shares`) or be a hand tilt (`FingerBones.tilt`, degrees); names stay per slot.
 - Baked data: actions prefixed `MIDI_`, NLA tracks `MIDI: …`; the user's action goes to `Base: …`.
+- Breathing: custom property `breath_lung` on the rig (baked by the "Breathing" effect), drivers on the body bones, sliders `Scene.midi_animator.breath_*`; bones changed keep `midianim_breath_inherit` (ADR 0014).
 - Written pitch = file pitch + Transpose. Charts and the note map use written pitch.

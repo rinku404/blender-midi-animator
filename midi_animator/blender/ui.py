@@ -3,7 +3,7 @@
 import bpy
 
 from ..core import fingering as core_fing
-from . import autoassign, hold, rig, state
+from . import autoassign, breathing, hold, rig, state
 
 
 def _labeled(layout, text, factor=0.38):
@@ -258,9 +258,24 @@ class MIDIANIM_PT_blow(MIDIANIM_PT_base, bpy.types.Panel):
     bl_label = "4. Blow"
     bl_options = {"DEFAULT_CLOSED"}
 
+    @staticmethod
+    def draw_breathing(layout, s):
+        box = layout.box()
+        r = box.row(align=True)
+        r.label(text="Breathing", icon="FORCE_WIND")
+        r.operator("midianim.breathing_add", text="Redo" if breathing.is_set_up(s) else "Add Breathing")
+        if breathing.is_set_up(s):
+            r.operator("midianim.breathing_remove", text="", icon="X")
+            col = box.column(align=True)
+            col.prop(s, "breath_intensity", slider=True)
+            for part in breathing.PARTS:
+                col.prop(s, f"breath_{part}", slider=True)
+            box.label(text="Sliders are live: no re-bake", icon="INFO")
+
     def draw(self, context):
         s = state.settings(context)
         layout = self.layout
+        self.draw_breathing(layout, s)
         row = layout.row(align=True)
         for p in state.profile(s).presets:
             row.operator("midianim.effect_add", text=p.label).preset = p.id
@@ -318,10 +333,6 @@ class MIDIANIM_PT_blow(MIDIANIM_PT_base, bpy.types.Panel):
         r = col.row(align=True)
         r.prop(e, "attack")
         r.prop(e, "release")
-        if e.mode == "LUNG":
-            r = col.row(align=True)
-            r.prop(e, "lung_capacity")
-            r.prop(e, "refill_time")
         if e.source == "VELOCITY" or e.if_missing == "VELOCITY":
             r = col.row(align=True)
             r.prop(e, "sustain")
