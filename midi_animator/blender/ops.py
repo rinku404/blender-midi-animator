@@ -8,7 +8,7 @@ from bpy.props import BoolProperty, EnumProperty, IntProperty, StringProperty
 from ..core import hud as core_hud
 from ..core import midi as core_midi
 from ..core.notes import note_name
-from . import actions, autoassign, bake, hold, hud_draw, rig, state
+from . import actions, autoassign, bake, breathing, hold, hud_draw, rig, state
 
 
 def _err(op, e):
@@ -702,6 +702,31 @@ class MIDIANIM_OT_effect_add(bpy.types.Operator):
         return {"FINISHED"}
 
 
+class MIDIANIM_OT_breathing_add(bpy.types.Operator):
+    """Set up breathing on the rig: chest, belly, shoulders and torso move with the breath (Redo repeats it)"""
+    bl_idname = "midianim.breathing_add"
+    bl_label = "Add Breathing"
+    bl_options = {"REGISTER", "UNDO"}
+
+    def execute(self, context):
+        try:
+            self.report({"INFO"}, breathing.setup(context, state.settings(context)))
+        except Exception as e:
+            return _err(self, e)
+        return {"FINISHED"}
+
+
+class MIDIANIM_OT_breathing_remove(bpy.types.Operator):
+    """Remove the breathing from the rig"""
+    bl_idname = "midianim.breathing_remove"
+    bl_label = "Remove Breathing"
+    bl_options = {"REGISTER", "UNDO"}
+
+    def execute(self, context):
+        self.report({"INFO"}, breathing.remove(context, state.settings(context)))
+        return {"FINISHED"}
+
+
 class MIDIANIM_OT_effect_remove(bpy.types.Operator):
     bl_idname = "midianim.effect_remove"
     bl_label = "Remove Blow Effect"
@@ -857,6 +882,8 @@ classes = (
     MIDIANIM_OT_copy_fingering,
     MIDIANIM_OT_paste_fingering,
     MIDIANIM_OT_effect_add,
+    MIDIANIM_OT_breathing_add,
+    MIDIANIM_OT_breathing_remove,
     MIDIANIM_OT_effect_remove,
     MIDIANIM_OT_effect_if_missing,
     MIDIANIM_OT_hud_fit,

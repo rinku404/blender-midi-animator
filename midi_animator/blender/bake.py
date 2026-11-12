@@ -171,14 +171,19 @@ def bake_fingering(scene, s, data):
 # Blow effects
 # ---------------------------------------------------------------------------
 
+def effect_notes(s, e, data):
+    """The notes an effect follows (the performer's, or its own track and channel)."""
+    if e.own_source:
+        return data.notes_for(e.track, e.channel_filter)
+    return state.performer_notes(s, data)
+
+
 def effect_source(s, e, data):
     """(events or None, notes or None, label, problem). problem is set when the effect
     must not be baked as configured."""
     track = e.track if e.own_source else s.performer_track
     chan = e.channel_filter if e.own_source else s.performer_channel
-    notes = [(n.start, n.end, n.velocity) for n in
-             state.performer_notes(s, data)] if not e.own_source else \
-        [(n.start, n.end, n.velocity) for n in data.notes_for(track, chan)]
+    notes = [(n.start, n.end, n.velocity) for n in effect_notes(s, e, data)]
     if e.source == "VELOCITY":
         return None, notes, "note velocity", None
     kind, num = ("CC", e.cc_number) if e.source == "CC" else ("AT", 0)
@@ -228,13 +233,15 @@ def bake_effect(scene, s, e, data):
     fr = state.fps(scene)
     f0 = min(s.start_frame, s.start_frame + int(math.floor(s.time_offset * fr)))
     f1 = int(math.ceil(state.frame_of(s, scene, data.length))) + int(fr)
+    if e.mode == "LUNG":                    # keep breathing slowly after the last note, to the scene's end
+        f1 = max(f1, scene.frame_end)
     frames = list(range(f0, f1 + 1))
     times = [state.time_of(s, scene, f) for f in frames]
     params = core_signal.BlowParams(
         attack=e.attack, release=e.release, threshold=e.threshold, curve=e.curve,
-        normalize=e.normalize, mode=e.mode, lung_capacity=e.lung_capacity,
-        refill_time=e.refill_time, sustain=e.sustain, decay=e.decay)
-    x = core_signal.blow_curve(times, params, events=events, notes=notes)
+        normalize=e.normalize, mode=e.mode, sustain=e.sustain, decay=e.decay)
+    spans = [(n.start, n.end) for n in effect_notes(s, e, data)]
+    x = core_signal.blow_curve(times, params, events=events, notes=notes, spans=spans)
     vals = core_signal.remap(x, e.out_min, e.out_max)
 
     obj = e.target

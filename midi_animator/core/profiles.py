@@ -145,11 +145,6 @@ WIND_PRESETS = (
     EffectPreset("CHEEKS", "Cheeks", "SHAPE_KEY", mode="DIRECT", shape_key="CheekPuff",
                  out_min=0.0, out_max=1.0, attack=0.04, release=0.15, curve=0.8,
                  blend="REPLACE"),
-    EffectPreset("CHEST", "Chest", "BONE", mode="LUNG",
-                 bone_keywords=("chest", "spine2", "spine.003", "upperchest", "upper_chest",
-                                "j_bip_c_upperchest", "spine1", "spine"),
-                 channel="SCALE_XZ", out_min=0.0, out_max=0.04, attack=0.15, release=0.4,
-                 blend="COMBINE"),
 )
 
 
