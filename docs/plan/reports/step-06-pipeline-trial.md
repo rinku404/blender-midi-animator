@@ -1,9 +1,9 @@
 ---
 step: 06
 title: Pipeline trial on CJ + clarinet
-status: partial          # waiting for the user: severities (G1), F1 preview, F3 Resolve
+status: done
 branch: plan/step-06-trial
-pr: "#10 (draft)"
+pr: "#10 (merged), closing PR: plan/step-06-close"
 commits: bd535de..7b2b9ec
 date: 2026-11-10
 blender: Blender 5.2.3 LTS (C:\Program Files\Blender Foundation\Blender 5.2\blender.exe)
@@ -24,23 +24,24 @@ because **Lock threw the hands 39 cm off** on the rig as imported (P1).
 The user judged the breathing **unrealistic** (E2). Today's Lung mode breathes once in the take and is empty for the
 last 31 s (P8), and the Chest preset swells the whole upper body, head included (P3). A breathing prototype built with
 the user (below) is the proposed fix for step 7.
-Nine plugin issues are recorded (P1, P3, P8 proposed *bad*; the rest *polish*). The user confirms the severities.
-Still waiting for the user: the viewport HUD preview (F1) and the Resolve overlay (F3).
+Nine plugin issues are recorded; the user confirmed the severities on 2026-11-12: P1, P3, P8 *bad*, the rest *polish*.
+F1 (viewport HUD preview) is ok; F3 (Resolve) is skipped because the user edits in Blender; F4 (Make Composite Scene
+under AgX) passed in the user's own UI run.
 
 ## Plugin issues
-Severities are proposals until the user confirms them (G1).
+Severities confirmed by the user on 2026-11-12 (G1).
 
 | # | Area | What happened | Expected | Severity | Suggested fix |
 |---|---|---|---|---|---|
-| P1 | Hold / Lock | On rigs whose bone tails don't sit on the next joint (CJ's FBX import: forearm tail 39 cm from the wrist), **Lock moves the hands 389.7 mm** off the instrument and holds them there. The forearm IK targets the forearm's tail. | Hands stay where they were posed (0 mm) | bad (proposed) | Lock compares the forearm tail with the hand head. If they are apart, it offers to move the arm bones' tails onto the next joint (what S8 did by script), or at least warns before locking. |
-| P8 | Blow / Lung mode | Lung mode only inhales when the blow drops under 2 %. On this take that happens once (9.6 s); from 24.5 s the lungs stay empty for 31 s and the chest freezes. Breaths also always refill to full. | The player breathes at phrase gaps, as much as the next phrase needs, and never runs dry | bad (proposed) | A breath planner (the user's idea): find breath points (note gaps, blow dips), inhale where the air left won't last to the next point, sized to the coming phrase and limited by the gap length, eased in and out; a prep breath before the first note; slow, small tidal breathing in long rests. Pairs with P3 (drive the chest/shoulders, not the lowest spine). **User feedback on the prototype (2026-11-11):** a fixed maximum, refilled quickly at *every* break (rule `every_break` in `scripts\breath_planner.py`: 8 breaths, lung fitted at 7 s); a stronger default swell (0.04 felt imperceptible; trying 0.10); and a torso tilt with the breath (trying `spine middle_012` ROT_Y, −1° empty to +2° full). Comparison copies: `midi_trial_breath_test.blend` / `_current.blend`. Then the user asked for **the whole body to breathe, with intensity control**. Prototype (`scripts\breath_body.py`): the plugin bakes one breath signal (a Property effect in Lung mode on `["breath_lung"]`); drivers move ribcage depth/width, belly, shoulder lift and a torso lean from it. Each part has a slider (`breath_chest`, `breath_belly`, `breath_shoulders`, `breath_torso`) plus a master `breath_intensity`, all live without a re-bake. Hands stay locked (0.0 mm); head and arm scale stay at 1.000. Proposed shape for step 7: a "Breathing" section in the Blow panel with these sliders. |
-| P9 | Analyze / Add Audio | **Add Audio** adds a new strip on every click. The file already had a `MIDI Audio` strip with the two-track mix (`zelda_recorded_v1.wav`), so after A4 both strips played and track B was heard twice. | One MIDI audio strip, replaced when the file changes | polish (proposed) | Replace (or update) the existing `MIDI Audio` strip instead of adding another; report "Replaced". |
-| P2 | Hold / Guess Bones | Hands not found when the rig names them `wrist` (CJ: `arm left wrist_041`); strap guessed as the lowest spine bone `spine lower_011`. | Wrist bones found; strap on the upper chest | polish (proposed) | Add `wrist` to the hand keywords; prefer the highest `spine` bone in the chain for the strap. |
-| P3 | Blow / Chest preset | The Chest preset's "spine" fallback picks `spine lower_011`, so the whole upper body, head included, swells by up to 4 %. | Chest bone only | bad (proposed; the user found it "odd") | Prefer the Strap bone if set, else the highest `spine` bone. Also: **Scale X+Z** assumes Rigify axes (Y along the bone). On CJ the spine's local X is *up*, so it stretched the torso's height and depth, not width and depth. Pick the axes from the bone's world orientation (front-back and side-side), and set the chest bone's children (neck, shoulders) to not inherit scale, so the head and arms don't grow. Tried in `midi_trial_breath_test.blend`: `spine upper_013` Scale Z 0.10 (depth) + Scale Y 0.04 (width); head and arm scale stay at 1.000. |
-| P4 | Analyze / Transpose | After changing Transpose, the HUD updates but the text summary (written range, unmapped notes) stays stale until Analyze is clicked again. | Summary follows Transpose | polish (proposed) | Re-run the summary on the Transpose update, or show "re-analyze" in the panel. |
-| P5 | UI | At the default sidebar width many labels and summary lines are cut off (`Instrum…`, `Charact…`, `Ho… 0.012 m`, `written D3–…`, `Unmapped notes…`). | Readable at default width | polish (proposed) | Explicit label splits / two-line summaries, as already done for the Hold box. |
-| P6 | UI text | "1 tracks". | "1 track" | polish (proposed) | Plural only for ≠ 1. |
-| P7 | Guide | The user asked how to pose the arms for the hold, which object to pick as Instrument (the import has `Clarinet`, an in-between empty and the meshes), and pressed Autoassign before any markers existed (0 poses + warning). | The guide answers these before the user hits them | polish (proposed) | Guide §3: arm posing for the hold, "pick the instrument's top object", and "Autoassign needs key markers". |
+| P1 | Hold / Lock | On rigs whose bone tails don't sit on the next joint (CJ's FBX import: forearm tail 39 cm from the wrist), **Lock moves the hands 389.7 mm** off the instrument and holds them there. The forearm IK targets the forearm's tail. | Hands stay where they were posed (0 mm) | bad | Lock compares the forearm tail with the hand head. If they are apart, it offers to move the arm bones' tails onto the next joint (what S8 did by script), or at least warns before locking. |
+| P8 | Blow / Lung mode | Lung mode only inhales when the blow drops under 2 %. On this take that happens once (9.6 s); from 24.5 s the lungs stay empty for 31 s and the chest freezes. Breaths also always refill to full. | The player breathes at phrase gaps, as much as the next phrase needs, and never runs dry | bad | A breath planner (the user's idea): find breath points (note gaps, blow dips), inhale where the air left won't last to the next point, sized to the coming phrase and limited by the gap length, eased in and out; a prep breath before the first note; slow, small tidal breathing in long rests. Pairs with P3 (drive the chest/shoulders, not the lowest spine). **User feedback on the prototype (2026-11-11):** a fixed maximum, refilled quickly at *every* break (rule `every_break` in `scripts\breath_planner.py`: 8 breaths, lung fitted at 7 s); a stronger default swell (0.04 felt imperceptible; trying 0.10); and a torso tilt with the breath (trying `spine middle_012` ROT_Y, −1° empty to +2° full). Comparison copies: `midi_trial_breath_test.blend` / `_current.blend`. Then the user asked for **the whole body to breathe, with intensity control**. Prototype (`scripts\breath_body.py`): the plugin bakes one breath signal (a Property effect in Lung mode on `["breath_lung"]`); drivers move ribcage depth/width, belly, shoulder lift and a torso lean from it. Each part has a slider (`breath_chest`, `breath_belly`, `breath_shoulders`, `breath_torso`) plus a master `breath_intensity`, all live without a re-bake. Hands stay locked (0.0 mm); head and arm scale stay at 1.000. Proposed shape for step 7: a "Breathing" section in the Blow panel with these sliders. |
+| P9 | Analyze / Add Audio | **Add Audio** adds a new strip on every click. The file already had a `MIDI Audio` strip with the two-track mix (`zelda_recorded_v1.wav`), so after A4 both strips played and track B was heard twice. | One MIDI audio strip, replaced when the file changes | polish | Replace (or update) the existing `MIDI Audio` strip instead of adding another; report "Replaced". |
+| P2 | Hold / Guess Bones | Hands not found when the rig names them `wrist` (CJ: `arm left wrist_041`); strap guessed as the lowest spine bone `spine lower_011`. | Wrist bones found; strap on the upper chest | polish | Add `wrist` to the hand keywords; prefer the highest `spine` bone in the chain for the strap. |
+| P3 | Blow / Chest preset | The Chest preset's "spine" fallback picks `spine lower_011`, so the whole upper body, head included, swells by up to 4 %. | Chest bone only | bad | Prefer the Strap bone if set, else the highest `spine` bone. Also: **Scale X+Z** assumes Rigify axes (Y along the bone). On CJ the spine's local X is *up*, so it stretched the torso's height and depth, not width and depth. Pick the axes from the bone's world orientation (front-back and side-side), and set the chest bone's children (neck, shoulders) to not inherit scale, so the head and arms don't grow. Tried in `midi_trial_breath_test.blend`: `spine upper_013` Scale Z 0.10 (depth) + Scale Y 0.04 (width); head and arm scale stay at 1.000. |
+| P4 | Analyze / Transpose | After changing Transpose, the HUD updates but the text summary (written range, unmapped notes) stays stale until Analyze is clicked again. | Summary follows Transpose | polish | Re-run the summary on the Transpose update, or show "re-analyze" in the panel. |
+| P5 | UI | At the default sidebar width many labels and summary lines are cut off (`Instrum…`, `Charact…`, `Ho… 0.012 m`, `written D3–…`, `Unmapped notes…`). | Readable at default width | polish | Explicit label splits / two-line summaries, as already done for the Hold box. |
+| P6 | UI text | "1 tracks". | "1 track" | polish | Plural only for ≠ 1. |
+| P7 | Guide | The user asked how to pose the arms for the hold, which object to pick as Instrument (the import has `Clarinet`, an in-between empty and the meshes), and pressed Autoassign before any markers existed (0 poses + warning). | The guide answers these before the user hits them | polish | Guide §3: arm posing for the hold, "pick the instrument's top object", and "Autoassign needs key markers". |
 
 ## Test-setup limits
 Things caused by the assets or the test file, not by the plugin.
@@ -56,7 +57,8 @@ Things caused by the assets or the test file, not by the plugin.
 | S7 | File | `midi_trial.blend` was saved with `Object_6` in Edit Mode, and contains no test cube (the user's cube was not saved). | Script switched the object to Object Mode before editing. Nothing to delete. |
 | S8 | **Setup change (2026-11-11): arm bone tails** | CJ's imported arm bones end beside the limb, not on the next joint (the forearm tail is 39 cm from the wrist), which breaks Lock (P1). `scripts\fix_arm_tails.py` moves the tails of `arm * shoulder 2` and `arm * elbow` onto the next joint (roll kept), then the hold pose is re-applied by `scripts\pose_arms.py`. The mesh is unchanged. Backups: `midi_trial_c1_before.blend` (the clarinet at the lips, T-pose) and `midi_trial_c1_oldrig.blend` (the arms posed on the original bones). | Lock and breathing pass (C4–C6, D3). |
 | S9 | Hold pose | The user placed the clarinet at the lips; the arms were posed by script at the user's request (C1). | C1 timing not representative. |
-| S10 | Scene | `midi_trial.blend` has no camera. | The F4 simulation added one in its copy. The user needs one before rendering the composite. |
+| S10 | Scene | `midi_trial.blend` has no camera. | The user added one for F4. |
+| S11 | Scene | `midi_trial.blend` has no World and no lights (the viewport's Material Preview hides that). A render is black. | The user added a World and a sun for F4; the stray Icosphere hid CJ's legs in renders. |
 
 ### S5: hand rebuild (setup change)
 Backup: `D:\3D\blender_projects\midi_trial\midi_trial_before_fingers.blend` (the file exactly as given).
@@ -190,10 +192,10 @@ views; the knuckle cap still shows as a sawtooth in a 60° fist.
 ## Acceptance criteria
 - [x] The checklist is fully walked or each skipped line has a reason. A1–C1 in the UI with the user; C2–F2 and F4 run
   headlessly with the plugin's operators at the user's request; B4 answered by the hand rebuild; key markers, Autoassign
-  and fingering skipped (step 12). **Still with the user:** E2 is judged (it led to P8), but F1's viewport preview and F3
-  (Resolve overlay) haven't been looked at yet.
-- [ ] Both tables are filled in, and the user confirmed the severities. The tables are filled in (P1–P9, S1–S10); the
-  severities are still *proposed* (the user chose to confirm them at G1).
+  and fingering skipped (step 12). E2 judged by the user (it led to P8), F1 ok in the UI, F4 run by the user in the UI,
+  F3 skipped (the user edits video in Blender, so the external-editor path isn't theirs).
+- [x] Both tables are filled in, and the user confirmed the severities: P1–P9 (P1, P3, P8 *bad*; the rest *polish*),
+  S1–S11.
 
 ## Verification
 | Check | Result |
@@ -236,7 +238,4 @@ bone, for reference).
 - **Step 12:** key markers, Autoassign, fingering judgement, thumb bend axis, and the hand-mesh limits listed under S5.
 
 ## Questions for the user
-1. Confirm or change the proposed severities in the Plugin issues table (G1).
-2. F1: does the HUD preview read well in the viewport? F3: does `midi_trial\hud\hud.mov` sit transparent and aligned
-   over the take in DaVinci Resolve?
-3. F4: the simulation passed; does the toned HUD under your own AgX scene look acceptable?
+None open. The user's answers: severities as proposed; F1 ok; F3 not used (edits in Blender); F4 ok.
