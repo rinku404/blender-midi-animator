@@ -54,13 +54,13 @@ breathes with its chest, and a note HUD you can lay over the video.
    - Three reach settings sit in the Autoassign box of panel **2. Fingers & Keys** (sidebar **N** ▸
      **MIDI** tab), just under **Keep Twist** and **Overwrite Locked**. **Swing °** and **Lift °**
      share a row, and **Thumb Turn °** is on the row below:
-     - **Swing °** (Knuckle Swing, 15° by default, up to 45°): how much further each finger's knuckle
+     - **Swing °** (Knuckle Swing, 25° by default, up to 45°): how much further each finger's knuckle
        may swing sideways, which on a held instrument is along the tube. This lets the left index roll
        up from its hole onto the throat A and G# keys. The middle and end joints still only curl.
      - **Lift °** (Knuckle Lift, 25° by default, up to 25°): how far a finger's or the thumb's knuckle
        may bend backwards, **in Up (hover) poses only**, so a curled finger can still rise off its key.
        Down poses never bend backwards. Set 0 for no lift.
-     - **Thumb Turn °** (30° by default, up to 60°): how far the thumb's base joint may turn about its
+     - **Thumb Turn °** (45° by default, up to 60°): how far the thumb's base joint may turn about its
        own length, so the thumb reaches round the back to its hole and the register key. It is the
        one twist Keep Twist allows. Raise it if a thumb pose still misses and the thumb doesn't look
        twisted; set 0 to lock it.

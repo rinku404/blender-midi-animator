@@ -318,7 +318,7 @@ class MIDIANIM_Settings(bpy.types.PropertyGroup):
                                          "length (locks IK on Y), except the thumb's base joint "
                                          "within Thumb Turn")
     knuckle_swing: FloatProperty(
-        name="Knuckle Swing", default=15.0, min=0.0, max=45.0, step=100, precision=0,
+        name="Knuckle Swing", default=25.0, min=0.0, max=45.0, step=100, precision=0,
         description="Degrees. How far a finger's knuckle (root joint) may swing along the "
                     "instrument, on top of its normal sideways spread, so the index can roll up "
                     "onto keys above its hole. Middle and end joints still only curl")
@@ -328,7 +328,7 @@ class MIDIANIM_Settings(bpy.types.PropertyGroup):
                     "(lift) in Up poses only, so a curled finger can still rise off its key. "
                     "Down poses never bend backwards")
     thumb_turn: FloatProperty(
-        name="Thumb Turn", default=30.0, min=0.0, max=60.0, step=100, precision=0,
+        name="Thumb Turn", default=45.0, min=0.0, max=60.0, step=100, precision=0,
         description="Degrees. How far the thumb's base joint may turn about its own length "
                     "(either way), so the thumb reaches round the back to its hole and the "
                     "register or octave key. 0 = Keep Twist locks it like the other joints")

@@ -224,8 +224,8 @@ def guess_hold_bones(bones):
 BEND_AXES = ("X", "-X", "Z", "-Z")
 MAX_BEND_DEG = 120.0       # how far one joint may curl during Autoassign
 ROOT_SPREAD_DEG = 25.0     # side-to-side freedom of a finger's root (knuckle) joint
-KNUCKLE_SWING_DEG = 15.0   # default extra knuckle swing along the instrument (ADR 0015)
-THUMB_TURN_DEG = 30.0      # default turn of the thumb's base joint about its own length (ADR 0015)
+KNUCKLE_SWING_DEG = 25.0   # default extra knuckle swing along the instrument (ADR 0015)
+THUMB_TURN_DEG = 45.0      # default turn of the thumb's base joint about its own length (ADR 0015)
 KNUCKLE_LIFT_DEG = 25.0    # default backwards bend of a root joint, Up poses only (ADR 0015)
 _MIN_CURL = 0.02           # sin of the summed rest curl below which a chain counts as straight
 
