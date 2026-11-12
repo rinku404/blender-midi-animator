@@ -53,8 +53,29 @@ def test_detect_numbered_fingers_cj():
     assert c[("L", "middle")] == ["arm left finger 2a_042", "arm left finger 2b_043", "arm left finger 2c_044"]
     assert c[("R", "index")][0] == "arm right finger 1a_055" and c[("R", "middle")][-1] == "arm right finger 2c_054"
     assert set(c) == {("L", "index"), ("L", "middle"), ("R", "index"), ("R", "middle")}
-    # the wrist is not a hold candidate problem here, and finger bones never are
-    assert R.guess_hold_bones(CJ_BONES)[1:] == ("", "")
+    # the wrists are the hands (step 7a, P2); finger bones never are
+    assert R.guess_hold_bones(CJ_BONES)[1:] == ("arm left wrist_041", "arm right wrist_051")
+
+
+def test_guess_hold_bones_cj_wrists_and_upper_chest():
+    """CJ's FBX rig: hands named wrist, a spine lower/middle/upper chain; the strap is the upper
+    chest, where the neck and the arms branch, not the lowest spine bone (step 6, P2)."""
+    bones = [("root hips_00", None), ("pelvis_02", "root hips_00"), ("spine lower_011", "root hips_00"),
+             ("spine middle_012", "spine lower_011"), ("spine upper_013", "spine middle_012"),
+             ("head neck lower_014", "spine upper_013"), ("head neck upper_015", "head neck lower_014"),
+             ("arm left shoulder 1_038", "spine upper_013"), ("arm left shoulder 2_039", "arm left shoulder 1_038"),
+             ("arm left elbow_040", "arm left shoulder 2_039"), ("arm left wrist_041", "arm left elbow_040"),
+             ("arm right shoulder 1_048", "spine upper_013"), ("arm right shoulder 2_049", "arm right shoulder 1_048"),
+             ("arm right elbow_050", "arm right shoulder 2_049"), ("arm right wrist_051", "arm right elbow_050"),
+             ("f_index.01.L", "arm left wrist_041"), ("thumb.01.R", "arm right wrist_051")]
+    assert R.guess_hold_bones(bones) == ("spine upper_013", "arm left wrist_041", "arm right wrist_051")
+    # a plain numbered chain with nothing branching: the highest spine bone
+    plain = [("Spine_01", None), ("Spine_02", "Spine_01"), ("Spine_03", "Spine_02")]
+    assert R.guess_hold_bones(plain)[0] == "Spine_03"
+    # a chain whose last spine bones are the neck and head: the one the arms hang from
+    with_neck = plain + [("Spine_04", "Spine_03"), ("Spine_05", "Spine_04"), ("L_Clavicle", "Spine_03"),
+                         ("R_Clavicle", "Spine_03"), ("L_Hand", None), ("R_Hand", None)]
+    assert R.guess_hold_bones(with_neck) == ("Spine_03", "L_Hand", "R_Hand")
 
 
 def test_assign_slots_two_finger_hand_shares_and_tilts():
