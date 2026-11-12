@@ -84,6 +84,15 @@ Add Breathing + Bake on both blends and measured scale, hand error, master 0/1/2
 The user's take, via the plugin's own functions (CC2, attack 0.15 / release 0.4, 24 fps): 8 breaths at 9.5, 14.9, 21.2,
 29.5, 35.5, 41.0, 45.1 and 48.4 s, lung size 7.0 s, minimum 0.1535.
 
+## Review fix (after the first report)
+Files made before 7b still hold the old Chest effect (Lung, Bone, Scale X+Z), so Bake ran both. Now **Add Breathing turns off
+every enabled Lung-mode Bone effect on the rig** (`enabled = False`, settings kept; the status line says "turned off the old
+Chest effect"), **Remove Breathing turns them back on**, and **Bake warns** if one is enabled next to Breathing. e2e
+`old_chest_checks`: after Add Breathing + Bake the arm's tracks are `["MIDI: Breathing"]` only, the lower spine's scale
+follows Breathing's belly (+6 %·lung) and the old effect's Y channel stays 1.0; re-enabling Chest gives the warning; Remove
+re-enables it. On a copy of `midi_trial.blend` (not pre-cleaned): `Baked: 111 fingered notes; Breathing ← CC2`, tracks
+Fingering / Hand Poses / Breathing, lower spine scale (1, 1, 1.057) at lung 0.953. Guide updated.
+
 ## Deviations from the plan or spec
 - The **Chest preset is removed**, not kept (see Decisions).
 - `lung_capacity` and `refill_time` are gone from the effect settings (the planner fits its own size).

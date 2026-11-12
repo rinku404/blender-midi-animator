@@ -134,6 +134,13 @@ def _spine_chain(arm, ribs_name):
     return middle, lower
 
 
+def old_lung_effects(s, arm):
+    """Enabled Lung-mode Bone effects on the rig other than Breathing: the old Chest preset's kind,
+    which would move the same body a second time."""
+    return [e for e in s.effects if e.enabled and e.name != EFFECT and e.mode == "LUNG"
+            and e.target_type == "BONE" and e.target == arm]
+
+
 def remove(context, s):
     """Take the breathing off the rig: drivers, rest pose of the bones, scale inheritance, the effect."""
     arm = s.rig
@@ -158,6 +165,9 @@ def remove(context, s):
         del arm[SETUP]
     if arm and LUNG in arm:
         del arm[LUNG]
+    for e in s.effects:                         # give back the effects Add Breathing turned off
+        if e.name in info.get("turned_off", []):
+            e.enabled = True
     for i in reversed(range(len(s.effects))):
         if s.effects[i].name == EFFECT:
             s.effects.remove(i)
@@ -257,6 +267,13 @@ def setup(context, s):
                        f"{r:.6f} + {k:.6f} * lung * part * master", "shoulders")
     if not all(lifts):
         notes.append("no shoulder bone above the upper arm on every side: no shoulder lift there")
+    old = old_lung_effects(s, arm)
+    for e in old:
+        e.enabled = False
+    info["turned_off"] = [e.name for e in old]
+    if old:
+        notes.append("turned off the old " + ", ".join(e.name for e in old) + " effect"
+                     + ("s" if len(old) > 1 else ""))
     arm[SETUP] = json.dumps(info)
 
     # the effect that bakes the signal

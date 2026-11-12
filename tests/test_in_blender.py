@@ -23,7 +23,7 @@ from mathutils import Matrix, Quaternion, Vector
 ROOT = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 sys.path.insert(0, ROOT)
 import midi_animator  # noqa: E402
-from midi_animator.blender import actions, autoassign, breathing, rig, state  # noqa: E402
+from midi_animator.blender import actions, autoassign, bake, breathing, rig, state  # noqa: E402
 from midi_animator.core.notes import parse_note_name  # noqa: E402
 
 MID = os.path.join(ROOT, "examples", "aerophone_sample.mid")
@@ -860,6 +860,40 @@ def breathing_checks(sideways_spine):
     bpy.ops.midianim.unlock_hands()
 
 
+def old_chest_checks():
+    """A file made before 7b has the old Chest effect (Lung mode, bone, Scale X+Z). Add Breathing turns
+    it off (settings kept), Bake animates the spine only through Breathing, and Bake warns if the old
+    effect is switched on again."""
+    scene, arm, skin, inst, tube = build_cj_scene(False, clavicles=True)
+    s = scene.midi_animator
+    s.rig, s.instrument, s.midi_path = arm, inst, MID
+    s.fingering_enabled = False
+    assert bpy.ops.midianim.guess_hold_bones() == {"FINISHED"}
+    e = s.effects.add()
+    e.name, e.target_type, e.target, e.bone = "Chest", "BONE", arm, "spine lower_011"
+    e.channel, e.mode, e.out_max, e.blend_type = "SCALE_XZ", "LUNG", 0.04, "COMBINE"
+    e.attack, e.release = 0.15, 0.4
+    assert bpy.ops.midianim.breathing_add() == {"FINISHED"}
+    chest = next(x for x in s.effects if x.name == "Chest")
+    assert not chest.enabled and abs(chest.out_max - 0.04) < 1e-6 and chest.bone == "spine lower_011"
+    assert bpy.ops.midianim.bake() == {"FINISHED"}
+    tracks = [t.name for t in arm.animation_data.nla_tracks]
+    assert tracks == ["MIDI: Breathing"], tracks
+    for f in (1, 30, 60, 90):
+        scene.frame_set(f)
+        low = arm.pose.bones["spine lower_011"]
+        lung = arm["breath_lung"]
+        assert abs(low.scale.y - 1.0) < 1e-6, tuple(low.scale)             # the old effect's Y (up) channel
+        assert abs(low.scale.z - (1 + 0.06 * lung)) < 1e-4, (tuple(low.scale), lung)      # Breathing's belly only
+    chest.enabled = True                                        # switched on again by hand: Bake warns
+    msgs, warnings = bake.bake_all(bpy.context)
+    assert any("Chest" in w and "second time" in w for w in warnings), warnings
+    chest.enabled = False
+    assert bpy.ops.midianim.breathing_remove() == {"FINISHED"}
+    assert chest.enabled, "Remove gives the old effect back"
+    print("old Chest effect checks passed")
+
+
 def main():
     midi_animator.register()
     scene, arm, sax, face = build_scene()
@@ -1055,6 +1089,7 @@ def main():
     offjoint_and_front_checks()
     breathing_checks(sideways_spine=False)
     breathing_checks(sideways_spine=True)
+    old_chest_checks()
     midi_animator.unregister()
     print("ALL TESTS PASSED")
 

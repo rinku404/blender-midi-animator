@@ -276,6 +276,9 @@ Things worth knowing:
   overrides animation of your own on those bones. Other bones are left alone.
 - The 3° and the percentages are for a normal-sized adult. A more theatrical breath: raise **Intensity**.
 - Moving the hands away from the instrument (Unlock) doesn't switch Breathing off. Remove it with the **X**.
+- A file made before this version may still have the old **Chest** effect in the list. **Add Breathing**
+  switches it off (the tick box in the list; its settings stay) and the status bar says so. **Bake** warns if you
+  tick it on again next to Breathing, because the body would move twice. The **X** beside **Redo** ticks it back on.
 - The old **Chest** button is gone: it scaled the lowest spine bone, so the head and arms grew with it, and
   it assumed Rigify's bone directions. Breathing replaces it. The generic effect list (below) can still
   drive any bone, but you choose the axis yourself.

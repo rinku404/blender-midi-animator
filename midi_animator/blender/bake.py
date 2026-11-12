@@ -8,7 +8,7 @@ from mathutils import Quaternion, Vector
 from ..core import fingering as core_fing
 from ..core import rigs
 from ..core import signal as core_signal
-from . import actions, autoassign, hold, rig, state
+from . import actions, autoassign, breathing, hold, rig, state
 
 
 # ---------------------------------------------------------------------------
@@ -310,6 +310,11 @@ def bake_all(context):
         if missing_poses:
             shown = ", ".join(missing_poses[:6]) + (" …" if len(missing_poses) > 6 else "")
             warnings.append("missing poses (run Autoassign): " + shown)
+    if any(e.name == breathing.EFFECT for e in effects) and s.rig:
+        for e in breathing.old_lung_effects(s, s.rig):
+            if e in effects:
+                warnings.append(f"{e.name} is a Lung-mode bone effect and moves the body a second time "
+                                "next to Breathing: untick it in the Blow list")
     for e in effects:
         label, problem = bake_effect(scene, s, e, data)
         if problem:
