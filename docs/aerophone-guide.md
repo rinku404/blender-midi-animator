@@ -35,26 +35,9 @@ breathes with its chest, and a note HUD you can lay over the video.
    and numbered fingers such as `arm left finger 1a` (see *Hands with fewer fingers* below).
    Fix any finger by picking its bones (root → tip). Detect Fingers also sets the **Bend Axis**
    (in the Autoassign box) from the way the fingers curl at rest; see step 5.
-2. **Hold the instrument.** A real sax hangs from a neck strap at chest height, angled down and to
-   the player's right, with the mouthpiece in the mouth and the bell near the right hip. The **left
-   hand is on top** (thumb on the thumb rest and octave key; index, middle and ring on B, A and G).
-   The **right hand is below** (thumb under the thumb rest; index, middle and ring on F, E and D).
-   The pinkies hover over the side keys.
-   A **clarinet** is held in front of the body, angled down with the bell toward the knees and the
-   mouthpiece at the lips, left hand on top and the right thumb under the thumb rest. The Hold box
-   treats it like the sax: it hangs from the same upper-chest **Strap Bone** and the hands lock onto it.
-   1. Place the instrument at the lips, angled like that, and pose both arms and hands onto it,
-      each finger lightly curled over its key.
-   2. In the **Hold the instrument** box set **Instrument** (the sax or clarinet body; the bell can
-      stay its child) and click **Guess Bones**. Check the **Strap Bone** (an upper-chest bone, for example
-      `mixamorig:Spine2` or Rigify's `spine.003`) and the two **Hand** bones.
-   3. Click **Lock**. The instrument now hangs from the strap bone, and two small targets
-      (`MIDI Hold L` and `MIDI Hold R`) keep the hands glued to it with IK wherever the body moves.
-      To adjust the grip, move those targets. **Unlock** removes the targets and constraints (the
-      instrument stays on the strap).
-   The Chest breathing effect scales the chest bone but never the instrument or the arms: while
-   locked, each upper arm's *Inherit Scale* is set to *None* (Blender's IK misses its target under
-   a scaled parent), so the hands stay on their targets. **Unlock** puts the setting back.
+2. **Hold the instrument.** Place the instrument at the lips, set which side of it is the front,
+   pose the arms onto it, then **Lock** the hands to it. Click by click in
+   [Set up the hold](#set-up-the-hold) below.
 3. **Place key markers.** Select a finger in the list. For each of its keys, put the 3D cursor on
    the key (or select the key's vertices in Edit Mode, and the marker's arrow follows their normal)
    and click **Place**. The arrow should point out of the key, toward where the finger lifts.
@@ -78,6 +61,80 @@ breathes with its chest, and a note HUD you can lay over the video.
    asset. The pose locks itself and Autoassign won't overwrite it. You can also toggle the lock
    by hand, or tick **Overwrite Locked** to regenerate everything.
 7. Optional: give a finger an authored **Up Pose** instead of hovering.
+
+### Set up the hold
+
+Do this once, before placing key markers. Everything here is in the 3D Viewport; the plugin's
+panel is in the sidebar (press **N** with the mouse over the viewport, then the **MIDI** tab, panel
+**2. Fingers & Keys**, box **Hold the instrument**).
+
+**How a real player stands.** A **clarinet** hangs from the lips, pointing down and forward: the
+tube leans about **20–25° away from the body**, bell toward the knees, never flat. The **keys and
+tone holes face forward**, away from the player. The **left hand is on top** (the upper joint, just
+below the barrel), the **right hand below** it (the lower joint), palms toward the tube from the
+sides, fingers reaching round to the front, and **both thumbs behind** the tube (the left thumb
+on its hole and the register key, the right under the thumb rest, carrying the weight). A **sax**
+hangs from a neck strap at chest height, angled down and to the player's right, mouthpiece in the
+mouth and bell near the right hip; same hands (left on top, right below), thumbs behind.
+
+1. **Pick the Instrument.** In the Outliner (top right), an imported instrument is a tree: a
+   top name (for the trial's clarinet, `Clarinet`) with an in-between object and the meshes nested
+   under it. The **Instrument** field wants that **top object**, so that the whole instrument moves
+   as one. Click the field in the Hold box and pick it from the list (or click the eyedropper, then
+   the instrument in the viewport, then check the name). If your import is a single mesh, pick that.
+2. **Put it at the lips.** Click the instrument in the Outliner (so it is selected), move the mouse
+   over the viewport and press **G** to move it (**X**, **Y** or **Z** after G locks the move to one
+   axis; left-click to confirm, right-click to cancel), **R** to turn it. Work from the side view
+   (**Numpad 3**) to set the lean and the height, and from the front (**Numpad 1**) to centre it.
+   For exact numbers, open the sidebar's **Item** tab and type **Location** and **Rotation**. Aim for:
+   mouthpiece tip at the mouth, the tube leaning 20–25° forward from vertical, bell forward and down.
+   Don't scale the rig to fit the instrument; scale the instrument (**S**) if it is the wrong size.
+3. **Set the Front.** Orbit the view (drag with the **middle mouse button**) until you look
+   **straight at the keys** (the side with the rings, rods and tone holes) and click **From View**.
+   The **Front (keys)** field fills in with one of the instrument's own axes (for the trial's clarinet,
+   `-Y`), and the line under it says how the front sits:
+   - *Front faces forward (N° off)*: good.
+   - *Front faces the player* or *Front faces sideways*: click **Turn Front Forward**. The instrument
+     rolls about its own length (the mouthpiece stays put) until the keys face away from the player.
+     If the line still says *sideways* after turning, the tube itself points forward: lean it more
+     upright (step 2) and click again.
+   - Already have key markers? **From Markers** reads the front from their arrows instead.
+   The player is taken to face the **front view** (Numpad 1), the way imported characters do. **Lock**
+   refuses while the front faces the player, so a hold with the fingers over the back can't happen
+   by accident. *Not Set* skips the check.
+4. **Pose the arms.** Click the rig (in the Outliner or on a bone), then switch to **Pose Mode**
+   (the mode menu at the top left of the viewport, or **Ctrl+Tab**). Bones turn about their own base,
+   so pose from the shoulder down and **rotate only**, never move (G) a bone:
+   1. Click the **upper arm** bone, press **R** and move the mouse; the arm swings (R twice turns it
+      freely, **R X** / **R Y** / **R Z** about one axis). Left-click to confirm. Bring the elbow a
+      little forward and out.
+   2. Click the **forearm**, **R**, and bring the hand to the tube: left hand at the upper joint,
+      right hand at the lower joint, each palm beside the tube, a finger's width away from it.
+   3. Click the **hand** (the wrist bone), **R**, and turn it so the fingers reach round the front of
+      the tube and the thumb sits behind. Check from the front (**Numpad 1**), the side (**Numpad 3**)
+      and above (**Numpad 7**). The fingertips don't have to touch the keys yet: Autoassign curls the
+      fingers onto the markers later; what matters is a palm close to the tube and thumbs behind.
+   If a hand ends up inside the tube, turn the forearm outward a little. **Ctrl+Z** undoes a turn.
+5. **Guess Bones**, then check the three fields: **Strap Bone** should be the upper chest (the bone
+   the arms and neck hang from: `spine upper`, `mixamorig:Spine2`, Rigify's `spine.003`), **Left**
+   and **Right Hand** the wrist bones (`hand.L`, `arm left wrist_041`, …), not fingers. Fix one by
+   typing in it or picking from its list.
+6. If a line says ***N arm bones end off the joint (up to 39 cm); Lock fixes them***: some FBX
+   imports draw the arm bones beside the limb instead of along it (CJ's does), which would throw the
+   hands away from the instrument on Lock. Lock moves those bone ends onto the elbow and wrist
+   first. The character's skin and pose don't change (the bones just turn to lie along the arm), and
+   the status bar lists the bones moved. **Ctrl+Z** undoes the whole Lock. One caveat: if the rig came
+   with arm animation of its own (a walk cycle keyed on those bones), that animation would play
+   differently afterwards; the plugin doesn't convert it.
+7. Click **Lock**. The instrument now hangs from the strap bone, and two small spheres
+   (`MIDI Hold L` and `MIDI Hold R`, children of the instrument) keep the hands glued to it with IK
+   wherever the body moves. Nothing should move when you click; the status bar at the bottom says
+   what was done. To adjust a grip afterwards, click its sphere and press **G** (the hand follows).
+   **Unlock** removes the spheres and constraints (the instrument stays on the strap).
+
+The Chest breathing effect scales the chest bone but never the instrument or the arms: while
+locked, each upper arm's *Inherit Scale* is set to *None* (Blender's IK misses its target under a
+scaled parent), so the hands stay on their targets. **Unlock** puts the setting back.
 
 ### Hands with fewer fingers
 
@@ -215,6 +272,8 @@ Export needs Blender's UI (it draws with the GPU), not `blender -b`.
 ## Troubleshooting
 
 - **The sax drifts away from the hands:** use **Lock** in the Hold box. Parenting it to the Armature object or to one hand doesn't keep both hands on it.
+- **Lock threw the hands off the instrument:** check that **Left Hand** and **Right Hand** are the wrist bones (not fingers or twist helpers). Arm bones whose ends sit off the joints are fixed by Lock itself (the panel announces it). **Unlock**, fix the bones, **Lock** again.
+- **The fingers are over the back of the instrument:** the front wasn't set. **Unlock**, set **Front** (From View) and click **Turn Front Forward**, re-pose the hands, **Lock**.
 - **A finger doesn't move:** check its bones (or **Shares Bones With**) in panel 2 and that its markers exist, then run Autoassign. Bake lists missing poses; Analyze lists slots with no bones as *Not animated*.
 - **The hand tilts the wrong way on thumb keys:** negate the thumb slot's **Press Tilt** (its sign follows the Bend Axis, which is read from the fingers, not the hand).
 - **The fingertip misses the key:** move the marker and run Autoassign again (unlock the pose if you edited it). If the status bar says "fingertip … mm off", check the **Bend Axis**.
