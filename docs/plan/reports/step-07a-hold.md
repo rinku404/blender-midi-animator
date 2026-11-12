@@ -3,8 +3,8 @@ step: 07a
 title: "Hold works on any rig, facing the right way"
 status: done
 branch: plan/step-07a-hold
-pr: <filled in by the closing commit>
-commits: 3c305f4..<closing commit>
+pr: "#15 (draft)"
+commits: 3c305f4..5be71ff (+ this closing commit)
 date: 2026-11-12
 blender: Blender 5.2.3 LTS (C:\Program Files\Blender Foundation\Blender 5.2\blender.exe)
 tests_core: 65 passed (python -m pytest tests/core -q)
